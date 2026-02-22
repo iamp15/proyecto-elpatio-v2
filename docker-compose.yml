@@ -1,0 +1,47 @@
+services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  api-gateway:
+    build:
+      context: ./apps/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongodb:27017/elpatio
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      - mongodb
+
+  game-server:
+    build:
+      context: ./apps/game-server
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      API_GATEWAY_URL: http://api-gateway:3000
+    depends_on:
+      - api-gateway
+
+  bot-telegram:
+    build:
+      context: ./apps/bot-telegram
+      dockerfile: Dockerfile
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      WEBAPP_URL: ${WEBAPP_URL:-https://tu-webapp.vercel.app}
+      API_GATEWAY_URL: http://api-gateway:3000
+    depends_on:
+      - api-gateway
+
+volumes:
+  mongodb_data:

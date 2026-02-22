@@ -1,0 +1,10 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--tg-theme-bg-color, #1a1a1a);
+  color: var(--tg-theme-text-color, #fff);
+  min-height: 100vh;
+}

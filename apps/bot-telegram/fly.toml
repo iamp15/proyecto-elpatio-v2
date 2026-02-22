@@ -1,0 +1,12 @@
+# Bot Telegram: fly launch y luego fly secrets set TELEGRAM_BOT_TOKEN=... WEBAPP_URL=... API_GATEWAY_URL=...
+
+app = "el-patio-bot"
+
+[build]
+
+[env]
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

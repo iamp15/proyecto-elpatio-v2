@@ -1,0 +1,17 @@
+{
+  "name": "game-server",
+  "version": "1.0.0",
+  "description": "El Patio — Game server (Socket.io, tiempo real)",
+  "main": "socket-handler.js",
+  "scripts": {
+    "dev": "nodemon socket-handler.js",
+    "start": "node socket-handler.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

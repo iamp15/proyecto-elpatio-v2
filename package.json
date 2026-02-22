@@ -1,0 +1,24 @@
+{
+  "name": "el-patio-v2",
+  "private": true,
+  "description": "Monorepo El Patio — webapp, dashboard, api-gateway, game-server, bot-telegram",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iamp15/proyecto-elpatio-v2.git"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:webapp": "npm run dev -w webapp",
+    "dev:dashboard": "npm run dev -w dashboard",
+    "dev:api": "npm run dev -w api-gateway",
+    "dev:game": "npm run dev -w game-server",
+    "dev:bot": "npm run dev -w bot-telegram",
+    "build:webapp": "npm run build -w webapp",
+    "build:dashboard": "npm run build -w dashboard",
+    "build": "npm run build:webapp && npm run build:dashboard",
+    "install:all": "npm install"
+  }
+}
