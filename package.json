@@ -19,6 +19,8 @@
     "build:webapp": "npm run build -w webapp",
     "build:dashboard": "npm run build -w dashboard",
     "build": "npm run build:webapp && npm run build:dashboard",
-    "install:all": "npm install"
+    "install:all": "npm install",
+    "seed": "node packages/database/seed.js",
+    "seed:docker": "docker-compose run --rm api-gateway node ../../packages/database/seed.js"
   }
 }

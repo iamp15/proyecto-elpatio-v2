@@ -10,7 +10,10 @@ const balanceRoutes = require('./routes/balance');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
 app.use('/health', healthRoutes);

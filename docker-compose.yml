@@ -1,6 +1,7 @@
 services:
   mongodb:
     image: mongo:7
+    container_name: el-patio-db # Nombre fijo para identificarlo fácil
     ports:
       - "27017:27017"
     volumes:
@@ -8,13 +9,13 @@ services:
 
   api-gateway:
     build:
-      context: ./apps/api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
     ports:
       - "3000:3000"
     environment:
       PORT: 3000
-      MONGODB_URI: mongodb://mongodb:27017/elpatio
+      MONGO_URI: mongodb://mongodb:27017/el_patio_db
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     depends_on:
@@ -22,8 +23,8 @@ services:
 
   game-server:
     build:
-      context: ./apps/game-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/game-server/Dockerfile
     ports:
       - "3001:3001"
     environment:
@@ -33,9 +34,11 @@ services:
       - api-gateway
 
   bot-telegram:
+    profiles:
+      - bot
     build:
-      context: ./apps/bot-telegram
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/bot-telegram/Dockerfile
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       WEBAPP_URL: ${WEBAPP_URL:-https://tu-webapp.vercel.app}

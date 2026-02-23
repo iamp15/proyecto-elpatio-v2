@@ -1,13 +1,2 @@
-const mongoose = require('mongoose');
-
-const userSchema = new mongoose.Schema(
-  {
-    telegramId: { type: String, required: true, unique: true },
-    username: String,
-    firstName: String,
-    lastName: String,
-  },
-  { timestamps: true }
-);
-
-module.exports = mongoose.model('User', userSchema);
+// Re-exporta el User del paquete compartido para no registrar el modelo dos veces
+module.exports = require('@el-patio/database').User;
