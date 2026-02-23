@@ -1,5 +1,5 @@
 {
-  "buildCommand": "if [ -d apps/webapp ]; then rm -rf apps/webapp/node_modules && npm run build -w webapp; else (cd ../.. && rm -rf apps/webapp/node_modules && npm run build -w webapp); fi",
+  "buildCommand": "if [ -d apps/webapp ]; then npm run build -w webapp; else (cd ../.. && npm run build -w webapp); fi",
   "outputDirectory": "apps/webapp/dist",
   "framework": "vite",
   "installCommand": "if [ -d apps/webapp ]; then npm install && npm install @rollup/rollup-linux-x64-gnu --no-save; else (cd ../.. && npm install && npm install @rollup/rollup-linux-x64-gnu --no-save); fi",
