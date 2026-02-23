@@ -1,6 +1,7 @@
 {
   "name": "el-patio-v2",
   "private": true,
+  "engines": { "node": "20.x" },
   "description": "Monorepo El Patio — webapp, dashboard, api-gateway, game-server, bot-telegram",
   "repository": {
     "type": "git",

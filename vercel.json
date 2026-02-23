@@ -2,7 +2,7 @@
   "buildCommand": "if [ -d apps/webapp ]; then npm run build -w webapp; else (cd ../.. && npm run build -w webapp); fi",
   "outputDirectory": "apps/webapp/dist",
   "framework": "vite",
-  "installCommand": "if [ -d apps/webapp ]; then npm install; else (cd ../.. && npm install); fi",
+  "installCommand": "if [ -d apps/webapp ]; then npm install && rm -rf apps/webapp/node_modules && npm install -w webapp; else (cd ../.. && npm install && rm -rf apps/webapp/node_modules && npm install -w webapp); fi",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
