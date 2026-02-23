@@ -23,23 +23,25 @@ export function UserProvider({ children }) {
 
   const login = useCallback(async () => {
     if (isTelegramEnv()) {
-      const body = { initData: WebApp.initData };
-      const data = await request('POST', '/auth/login', { body });
+      console.log('[Login] Tipo: Telegram');
+      const data = await request('POST', '/auth/login', { body: { initData: WebApp.initData } });
       const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
       setToken(data.token);
       setUser(userData);
+      console.log('[Login] Resultado: OK', userData);
       return;
     }
     if (isDevEnv()) {
+      console.log('[Login] Tipo: mock');
       const data = await request('POST', '/auth/login', {
         body: { isMock: true, userId: MOCK_USER_ID },
       });
       const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
       setToken(data.token);
       setUser(userData);
+      console.log('[Login] Resultado: OK', userData);
       return;
     }
-    // Fuera de Telegram y no en desarrollo: no llamar al backend
   }, []);
 
   const logout = useCallback(() => {
@@ -51,7 +53,9 @@ export function UserProvider({ children }) {
     if (token != null || loginAttempted.current) return;
     if (isTelegramEnv() || isDevEnv()) {
       loginAttempted.current = true;
-      login().catch(() => {});
+      login().catch((err) => {
+        console.error('[Login] Resultado: Error', err?.message || err, err?.status, err?.body);
+      });
     }
   }, [token, login]);
 

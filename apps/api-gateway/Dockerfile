@@ -20,8 +20,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY packages/database ./packages/database
 COPY apps/api-gateway ./apps/api-gateway
 
-# Seteamos variables de entorno
-ENV NODE_ENV=production
+# NODE_ENV lo define docker-compose (development local, production en deploy)
 EXPOSE 3000
 
 # Nos movemos a la carpeta del gateway para ejecutar

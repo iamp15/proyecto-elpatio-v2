@@ -11,8 +11,9 @@ const JWT_EXPIRES = '7d';
 router.post('/login', async (req, res, next) => {
   try {
     const { isMock, userId: bodyUserId, initData } = req.body || {};
+    const nodeEnv = process.env.NODE_ENV;
 
-    if (process.env.NODE_ENV !== 'production' && isMock === true) {
+    if (nodeEnv !== 'production' && isMock === true) {
       const userId = Number(bodyUserId);
       if (!userId || Number.isNaN(userId)) {
         return res.status(400).json({ error: 'userId (number) required for mock login' });
@@ -28,7 +29,6 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
-    // Rama Telegram: validar initData
     if (!initData || typeof initData !== 'string') {
       return res.status(400).json({ error: 'initData (string) required' });
     }
