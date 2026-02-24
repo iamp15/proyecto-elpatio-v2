@@ -19,7 +19,6 @@
     "dev:api": "npm run dev -w api-gateway",
     "dev:game": "npm run dev -w game-server",
     "dev:bot": "npm run dev -w bot-telegram",
-    "tunnel": "ngrok http 3000",
     "build:webapp": "npm run build -w webapp",
     "build:dashboard": "npm run build -w dashboard",
     "build": "npm run build:webapp && npm run build:dashboard",

@@ -4,18 +4,26 @@ import { request } from '../api/client.js';
 
 const MOCK_USER_ID = Number(import.meta.env.VITE_MOCK_USER_ID) || 12345678;
 
+/** Usar el objeto que inyecta Telegram (window.Telegram.WebApp) para auth; el SDK a veces no está enlazado al mismo en el WebView. */
+function getTelegramWebApp() {
+  if (typeof window === 'undefined') return null;
+  return window.Telegram?.WebApp ?? (typeof WebApp !== 'undefined' ? WebApp : null);
+}
+
 function isTelegramEnv() {
-  return typeof WebApp !== 'undefined' && WebApp.initData && String(WebApp.initData).length > 0;
+  const twa = getTelegramWebApp();
+  return twa != null && twa.initData != null && String(twa.initData).length > 0;
 }
 
 function getTelegramLogContext() {
   try {
-    if (typeof WebApp === 'undefined') return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0, usuarioTelegram: null };
-    const initData = WebApp.initData ? String(WebApp.initData) : '';
+    const twa = getTelegramWebApp();
+    if (twa == null) return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0, usuarioTelegram: null, fuente: 'ninguna' };
+    const initData = twa.initData ? String(twa.initData) : '';
     let user = null;
     try {
-      if (WebApp.initDataUnsafe && typeof WebApp.initDataUnsafe.user !== 'undefined') {
-        const u = WebApp.initDataUnsafe.user;
+      if (twa.initDataUnsafe && typeof twa.initDataUnsafe.user !== 'undefined') {
+        const u = twa.initDataUnsafe.user;
         user = { id: u.id, username: u.username || null, firstName: u.first_name || null };
       }
     } catch (_) {}
@@ -24,6 +32,7 @@ function getTelegramLogContext() {
       initDataPresente: initData.length > 0,
       initDataLongitud: initData.length,
       usuarioTelegram: user,
+      fuente: window.Telegram?.WebApp ? 'window.Telegram.WebApp' : 'sdk',
     };
   } catch (e) {
     return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0, usuarioTelegram: null, error: String(e && e.message ? e.message : e) };
@@ -54,8 +63,9 @@ export function UserProvider({ children }) {
     });
 
     if (isTelegramEnv()) {
+      const twa = getTelegramWebApp();
       console.log('[Login] Enviando login con initData (longitud:', telegramCtx.initDataLongitud, ')');
-      const data = await request('POST', '/auth/login', { body: { initData: WebApp.initData } });
+      const data = await request('POST', '/auth/login', { body: { initData: twa.initData } });
       const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
       setToken(data.token);
       setUser(userData);
@@ -88,7 +98,7 @@ export function UserProvider({ children }) {
     let telegramCtx;
     try {
       telegramCtx = getTelegramLogContext();
-      console.log('[Login] Webapp iniciada. Desde Telegram:', telegramCtx.desdeTelegram, '| initData presente:', telegramCtx.initDataPresente, '| Usuario TG:', telegramCtx.usuarioTelegram);
+      console.log('[Login] Webapp iniciada. Desde Telegram:', telegramCtx.desdeTelegram, '| initData presente:', telegramCtx.initDataPresente, '| Usuario TG:', telegramCtx.usuarioTelegram, telegramCtx.fuente ? '| fuente: ' + telegramCtx.fuente : '');
     } catch (e) {
       console.log('[Login] Webapp iniciada. Error al leer contexto:', String(e));
     }

@@ -1,18 +1,4 @@
 services:
-  mongodb:
-    image: mongo:7
-    container_name: el-patio-db # Nombre fijo para identificarlo fácil
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   api-gateway:
     build:
       context: .
@@ -22,12 +8,9 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3000
-      MONGO_URI: mongodb://mongodb:27017/el_patio_db
+      MONGO_URI: ${MONGO_URI:-}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-    depends_on:
-      mongodb:
-        condition: service_healthy
 
   game-server:
     build:
@@ -51,6 +34,3 @@ services:
       API_GATEWAY_URL: http://api-gateway:3000
     depends_on:
       - api-gateway
-
-volumes:
-  mongodb_data:

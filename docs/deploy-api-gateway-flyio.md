@@ -1,6 +1,6 @@
 # Desplegar api-gateway en Fly.io
 
-Pasos para subir el api-gateway a Fly.io y usarlo desde la webapp en Vercel (sin ngrok ni localtunnel).
+Pasos para desplegar el api-gateway en Fly.io y usarlo desde la webapp en Vercel.
 
 ---
 
@@ -31,7 +31,7 @@ Pasos para subir el api-gateway a Fly.io y usarlo desde la webapp en Vercel (sin
 
 3. **Variables que usarás**  
    Ten a mano:
-   - `MONGO_URI` (ej. `mongodb+srv://user:pass@cluster.mongodb.net/el_patio_db`)
+   - `MONGO_URI`: la URI de conexión que te da MongoDB Atlas (Dashboard → Connect → “Connect your application”).
    - `JWT_SECRET` (una frase larga y aleatoria)
    - `TELEGRAM_BOT_TOKEN` (de @BotFather)
    - URL de la webapp en Vercel para CORS (ej. `https://proyecto-elpatio-v2-webapp.vercel.app`)
@@ -59,7 +59,8 @@ Si la app `el-patio-api` ya existe (por un `fly launch` anterior), no hace falta
 En Fly, los secretos no van en `fly.toml`; se configuran con `fly secrets set`:
 
 ```bash
-fly secrets set MONGO_URI="mongodb+srv://USUARIO:PASSWORD@cluster.xxxxx.mongodb.net/el_patio_db" --app el-patio-api
+# Sustituye <TU_URI_ATLAS> por la URI que te da MongoDB Atlas (nunca la subas al repo)
+fly secrets set MONGO_URI="<TU_URI_ATLAS>" --app el-patio-api
 fly secrets set JWT_SECRET="tu-frase-secreta-larga-y-aleatoria" --app el-patio-api
 fly secrets set TELEGRAM_BOT_TOKEN="123456:ABC-DEF...." --app el-patio-api
 fly secrets set CORS_ORIGIN="https://proyecto-elpatio-v2-webapp.vercel.app" --app el-patio-api
@@ -111,7 +112,7 @@ Deberías recibir algo como `{"status":"ok","timestamp":"..."}`.
    - Entorno: **Production** (y Preview si quieres).
 3. Guarda y haz un **Redeploy** de la webapp para que el nuevo build use esa URL.
 
-A partir de ahí, la webapp en Vercel llamará al api-gateway en Fly.io; no necesitas túnel local.
+A partir de ahí, la webapp en Vercel llamará al api-gateway en Fly.io.
 
 ---
 
