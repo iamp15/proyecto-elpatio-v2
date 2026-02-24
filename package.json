@@ -1,7 +1,9 @@
 {
   "name": "el-patio-v2",
   "private": true,
-  "engines": { "node": "20.x" },
+  "engines": {
+    "node": "20.x"
+  },
   "description": "Monorepo El Patio — webapp, dashboard, api-gateway, game-server, bot-telegram",
   "repository": {
     "type": "git",
@@ -17,11 +19,15 @@
     "dev:api": "npm run dev -w api-gateway",
     "dev:game": "npm run dev -w game-server",
     "dev:bot": "npm run dev -w bot-telegram",
+    "tunnel": "ngrok http 3000",
     "build:webapp": "npm run build -w webapp",
     "build:dashboard": "npm run build -w dashboard",
     "build": "npm run build:webapp && npm run build:dashboard",
     "install:all": "npm install",
     "seed": "node packages/database/seed.js",
     "seed:docker": "docker-compose run --rm api-gateway node ../../packages/database/seed.js"
+  },
+  "dependencies": {
+    "eruda": "^3.4.3"
   }
 }

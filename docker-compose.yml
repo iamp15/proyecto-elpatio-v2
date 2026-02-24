@@ -6,6 +6,12 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   api-gateway:
     build:
@@ -20,7 +26,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
 
   game-server:
     build:
@@ -35,14 +42,12 @@ services:
       - api-gateway
 
   bot-telegram:
-    profiles:
-      - bot
     build:
       context: .
       dockerfile: apps/bot-telegram/Dockerfile
     environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      WEBAPP_URL: ${WEBAPP_URL:-https://tu-webapp.vercel.app}
+      TELEGRAM_BOT_TOKEN: ${BOT_TOKEN:-}
+      WEBAPP_URL: ${WEBAPP_URL:-https://proyecto-elpatio-v2-webapp.vercel.app}
       API_GATEWAY_URL: http://api-gateway:3000
     depends_on:
       - api-gateway
