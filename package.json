@@ -28,6 +28,7 @@
     "seed:docker": "docker-compose run --rm api-gateway node ../../packages/database/seed.js"
   },
   "dependencies": {
-    "eruda": "^3.4.3"
+    "eruda": "^3.4.3",
+    "mongodb": "^7.1.0"
   }
 }

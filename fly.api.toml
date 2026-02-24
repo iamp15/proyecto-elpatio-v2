@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for el-patio-api on 2026-02-24T14:15:54-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'el-patio-api'
+primary_region = 'gru'
+
+[build]
+  dockerfile = 'apps/api-gateway/Dockerfile'
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '3000'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256

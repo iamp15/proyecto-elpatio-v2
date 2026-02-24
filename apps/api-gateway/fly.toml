@@ -1,8 +1,10 @@
-# fly launch para crear app; luego: fly secrets set MONGODB_URI=... JWT_SECRET=... TELEGRAM_BOT_TOKEN=...
+# Despliegue: desde la RAÍZ del monorepo usa fly.api.toml (el Dockerfile necesita contexto raíz).
+# Ver docs/deploy-api-gateway-flyio.md
 
 app = "el-patio-api"
 
 [build]
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "3000"
