@@ -81,6 +81,10 @@ export function UserProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    if (baseUrl) {
+      fetch(`${baseUrl}/health/debug`).catch(() => {}).finally(() => {});
+    }
     let telegramCtx;
     try {
       telegramCtx = getTelegramLogContext();

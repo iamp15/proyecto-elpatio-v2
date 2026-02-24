@@ -11,4 +11,10 @@ router.get('/ready', (req, res) => {
   res.status(ready ? 200 : 503).json({ ready });
 });
 
+/** Para diagnóstico: al llamar GET /health/debug se escribe un log. Útil para comprobar que las peticiones llegan al gateway (túnel, CORS, VITE_API_URL). */
+router.get('/debug', (req, res) => {
+  console.log('[health] GET /health/debug recibido', new Date().toISOString(), '| Origin:', req.get('origin') || '-');
+  res.json({ ok: true, message: 'api-gateway recibió la petición', timestamp: new Date().toISOString() });
+});
+
 module.exports = router;
