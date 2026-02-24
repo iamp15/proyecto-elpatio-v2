@@ -9,15 +9,25 @@ function isTelegramEnv() {
 }
 
 function getTelegramLogContext() {
-  if (typeof WebApp === 'undefined') return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0 };
-  const initData = WebApp.initData ? String(WebApp.initData) : '';
-  const user = typeof WebApp.initDataUnsafe?.user !== 'undefined' ? WebApp.initDataUnsafe.user : null;
-  return {
-    desdeTelegram: true,
-    initDataPresente: initData.length > 0,
-    initDataLongitud: initData.length,
-    usuarioTelegram: user ? { id: user.id, username: user.username || null, firstName: user.first_name || null } : null,
-  };
+  try {
+    if (typeof WebApp === 'undefined') return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0, usuarioTelegram: null };
+    const initData = WebApp.initData ? String(WebApp.initData) : '';
+    let user = null;
+    try {
+      if (WebApp.initDataUnsafe && typeof WebApp.initDataUnsafe.user !== 'undefined') {
+        const u = WebApp.initDataUnsafe.user;
+        user = { id: u.id, username: u.username || null, firstName: u.first_name || null };
+      }
+    } catch (_) {}
+    return {
+      desdeTelegram: true,
+      initDataPresente: initData.length > 0,
+      initDataLongitud: initData.length,
+      usuarioTelegram: user,
+    };
+  } catch (e) {
+    return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0, usuarioTelegram: null, error: String(e && e.message ? e.message : e) };
+  }
 }
 
 function isDevEnv() {
@@ -71,8 +81,13 @@ export function UserProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const telegramCtx = getTelegramLogContext();
-    console.log('[Login] Webapp iniciada. Desde Telegram:', telegramCtx.desdeTelegram, '| initData presente:', telegramCtx.initDataPresente, '| Usuario TG:', telegramCtx.usuarioTelegram);
+    let telegramCtx;
+    try {
+      telegramCtx = getTelegramLogContext();
+      console.log('[Login] Webapp iniciada. Desde Telegram:', telegramCtx.desdeTelegram, '| initData presente:', telegramCtx.initDataPresente, '| Usuario TG:', telegramCtx.usuarioTelegram);
+    } catch (e) {
+      console.log('[Login] Webapp iniciada. Error al leer contexto:', String(e));
+    }
     if (token != null || loginAttempted.current) return;
     if (isTelegramEnv() || isDevEnv()) {
       loginAttempted.current = true;
