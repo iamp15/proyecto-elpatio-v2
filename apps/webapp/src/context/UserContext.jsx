@@ -8,6 +8,18 @@ function isTelegramEnv() {
   return typeof WebApp !== 'undefined' && WebApp.initData && String(WebApp.initData).length > 0;
 }
 
+function getTelegramLogContext() {
+  if (typeof WebApp === 'undefined') return { desdeTelegram: false, initDataPresente: false, initDataLongitud: 0 };
+  const initData = WebApp.initData ? String(WebApp.initData) : '';
+  const user = typeof WebApp.initDataUnsafe?.user !== 'undefined' ? WebApp.initDataUnsafe.user : null;
+  return {
+    desdeTelegram: true,
+    initDataPresente: initData.length > 0,
+    initDataLongitud: initData.length,
+    usuarioTelegram: user ? { id: user.id, username: user.username || null, firstName: user.first_name || null } : null,
+  };
+}
+
 function isDevEnv() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
@@ -22,24 +34,33 @@ export function UserProvider({ children }) {
   const loginAttempted = useRef(false);
 
   const login = useCallback(async () => {
+    const telegramCtx = getTelegramLogContext();
+    console.log('[Login] Detección:', {
+      desdeTelegram: telegramCtx.desdeTelegram,
+      initDataPresente: telegramCtx.initDataPresente,
+      initDataLongitud: telegramCtx.initDataLongitud,
+      usuarioTelegram: telegramCtx.usuarioTelegram,
+      esDevLocal: isDevEnv(),
+    });
+
     if (isTelegramEnv()) {
-      console.log('[Login] Tipo: Telegram');
+      console.log('[Login] Enviando login con initData (longitud:', telegramCtx.initDataLongitud, ')');
       const data = await request('POST', '/auth/login', { body: { initData: WebApp.initData } });
       const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
       setToken(data.token);
       setUser(userData);
-      console.log('[Login] Resultado: OK', userData);
+      console.log('[Login] Login exitoso (Telegram):', userData);
       return;
     }
     if (isDevEnv()) {
-      console.log('[Login] Tipo: mock');
+      console.log('[Login] Enviando login mock (userId:', MOCK_USER_ID, ')');
       const data = await request('POST', '/auth/login', {
         body: { isMock: true, userId: MOCK_USER_ID },
       });
       const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
       setToken(data.token);
       setUser(userData);
-      console.log('[Login] Resultado: OK', userData);
+      console.log('[Login] Login exitoso (mock):', userData);
       return;
     }
   }, []);
@@ -50,11 +71,13 @@ export function UserProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    const telegramCtx = getTelegramLogContext();
+    console.log('[Login] Webapp iniciada. Desde Telegram:', telegramCtx.desdeTelegram, '| initData presente:', telegramCtx.initDataPresente, '| Usuario TG:', telegramCtx.usuarioTelegram);
     if (token != null || loginAttempted.current) return;
     if (isTelegramEnv() || isDevEnv()) {
       loginAttempted.current = true;
       login().catch((err) => {
-        console.error('[Login] Resultado: Error', err?.message || err, err?.status, err?.body);
+        console.error('[Login] Error:', err?.message || err, 'status:', err?.status, 'body:', err?.body);
       });
     }
   }, [token, login]);
