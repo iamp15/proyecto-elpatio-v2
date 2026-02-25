@@ -9,6 +9,8 @@ function triggerHaptic() {
   } catch (_) {}
 }
 
+const MAIN_ROUTES = new Set(['/', '/wallet', '/settings']);
+
 const tabs = [
   { to: '/', label: 'Juegos', icon: IconLudo },
   { to: '/wallet', label: 'Billetera', icon: IconWallet },
@@ -43,8 +45,13 @@ function IconSettings() {
 
 export default function TabBar() {
   const location = useLocation();
+  const isHidden = !MAIN_ROUTES.has(location.pathname);
   return (
-    <nav className={styles.tabBar} role="tablist" aria-label="Navegación principal">
+    <nav
+      className={`${styles.tabBar}${isHidden ? ` ${styles.tabBarHidden}` : ''}`}
+      role="tablist"
+      aria-label="Navegación principal"
+    >
       {tabs.map(({ to, label, icon: Icon }) => {
         const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
         return (
