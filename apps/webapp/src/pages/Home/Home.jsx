@@ -1,19 +1,17 @@
-import { useUser } from '../../context/UserContext';
-import { useBalance } from '../../hooks/useBalance';
+import { useAuth } from '../../hooks/useAuth';
 import styles from './Home.module.css';
 
 export default function Home() {
-  const { user, logout } = useUser();
-  const { piedras, loading, error } = useBalance();
+  const { user, balance, balanceLoading, balanceError, logout } = useAuth();
   const username = user?.username ?? 'Usuario';
 
   return (
     <div className={styles.root}>
       <h1>Home</h1>
-      {loading && <p>Cargando…</p>}
-      {error && <p className={styles.error}>{error}</p>}
-      {!loading && !error && piedras != null && (
-        <p>Hola, {username}, tu balance es {piedras} piedras.</p>
+      {balanceLoading && <p>Cargando…</p>}
+      {balanceError && <p className={styles.error}>{balanceError}</p>}
+      {!balanceLoading && !balanceError && balance != null && (
+        <p>Hola, {username}, tu balance es {balance} piedras.</p>
       )}
       {user && (
         <button type="button" className={styles.logoutBtn} onClick={logout}>

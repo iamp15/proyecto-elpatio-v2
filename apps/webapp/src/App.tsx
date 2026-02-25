@@ -1,22 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
-import { WebApp } from '@twa-dev/sdk';
-import { UserProvider } from './context/UserContext';
+import { AuthProvider } from './context/AuthContext';
 import Lobby from './pages/Lobby';
 import Piedras from './pages/Piedras';
 import Home from './pages/Home/Home';
 import Wallet from './pages/Wallet/Wallet';
 
 export default function App() {
-  useEffect(() => {
-    if (typeof WebApp !== 'undefined') {
-      WebApp.ready();
-      WebApp.expand();
-    }
-  }, []);
-
   return (
-    <UserProvider>
+    <AuthProvider>
     <BrowserRouter
       future={{
         v7_startTransition: true,
@@ -30,6 +21,6 @@ export default function App() {
         <Route path="/piedras" element={<Piedras />} />
       </Routes>
     </BrowserRouter>
-    </UserProvider>
+    </AuthProvider>
   );
 }

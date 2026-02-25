@@ -25,9 +25,10 @@ router.post('/login', async (req, res, next) => {
       if (!userId || Number.isNaN(userId)) {
         return res.status(400).json({ error: 'userId (number) required for mock login' });
       }
-      const user = await User.findById(userId);
+      let user = await User.findById(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Usuario mock no encontrado' });
+        user = await User.create({ _id: userId, username: 'MockUser' });
+        console.log('[auth] Usuario mock creado:', user._id);
       }
       const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
       console.log('[auth] Login MOCK OK:', user._id, user.username);
