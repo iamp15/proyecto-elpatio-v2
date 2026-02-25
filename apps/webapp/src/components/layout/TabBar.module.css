@@ -8,45 +8,50 @@
   align-items: center;
   height: 64px;
   padding: 0 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-surface, #ffffff);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--color-glass-border, rgba(255, 255, 255, 0.10));
+  border: 1.5px solid rgba(0, 0, 0, 0.13);
   border-radius: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.07);
 }
 
 .tab {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   flex: 1;
-  padding: 8px 12px;
-  color: var(--color-hint, rgba(245, 245, 245, 0.5));
+  color: var(--color-text, #000000);
   text-decoration: none;
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  transition: color 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
   border: none;
   background: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  border-radius: 20px;
 }
 
-.tab:active {
-  transform: scale(0.92);
+.tab:active .pill {
+  transform: scale(0.93);
   opacity: 0.8;
 }
 
 .tabActive {
-  color: var(--color-accent, #3390ec);
+  color: #0e4dbae5;
 }
 
-.tabActive .icon {
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent, #3390ec) 60%, transparent));
+/* Cápsula que envuelve icono + label */
+.pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  transition: background 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
+}
+
+.tabActive .pill {
+  background: #e5f1f8;
 }
 
 .icon {
@@ -55,14 +60,11 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  transition: transform 0.3s ease, filter 0.3s ease;
-}
-
-.tabActive .icon {
-  transform: scale(1.1);
 }
 
 .label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   line-height: 1.2;
-  transition: opacity 0.3s ease;
 }

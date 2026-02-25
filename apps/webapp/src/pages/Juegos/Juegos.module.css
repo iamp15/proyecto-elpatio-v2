@@ -1,0 +1,88 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px;
+}
+
+.heading {
+  margin: 0 0 4px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text, #000000);
+}
+
+/* ── Tarjeta principal ─────────────────────── */
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cardBadge {
+  align-self: flex-start;
+  background: var(--color-accent, #3390ec);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.cardIcon {
+  font-size: 4rem;
+  line-height: 1;
+  /* rotación decorativa para dinamismo */
+  transform: rotate(-8deg);
+  align-self: flex-start;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text, #000000);
+}
+
+.cardDescription {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-hint, rgba(0, 0, 0, 0.5));
+}
+
+.cardButton {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ── Tarjeta secundaria ────────────────────── */
+.cardSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 24px;
+  opacity: 0.55;
+  cursor: default;
+  user-select: none;
+}
+
+.soon {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-hint, rgba(0, 0, 0, 0.5));
+  font-style: italic;
+}

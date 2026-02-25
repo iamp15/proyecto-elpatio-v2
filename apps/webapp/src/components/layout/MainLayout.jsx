@@ -1,13 +1,13 @@
 import { Outlet } from 'react-router-dom';
 import TabBar from './TabBar';
 import styles from './MainLayout.module.css';
+import useTelegramBackButton from '../../hooks/useTelegramBackButton';
 
 export default function MainLayout() {
+  useTelegramBackButton();
+
   return (
     <div className={styles.container}>
-      <header className={styles.header} aria-label="Cabecera">
-        <h1 className={styles.title}>El Patio</h1>
-      </header>
       <main className={styles.content}>
         <Outlet />
       </main>

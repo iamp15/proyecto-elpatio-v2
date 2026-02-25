@@ -5,24 +5,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg, #1c1c1e);
-  color: var(--color-text, #f5f5f5);
-}
-
-.header {
-  flex-shrink: 0;
-  min-height: 52px;
-  padding: 14px 20px;
-  background: var(--color-bg, #1c1c1e);
-  border-bottom: 1px solid var(--color-separator, rgba(245, 245, 245, 0.08));
-}
-
-.title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--color-text, #f5f5f5);
+  background: var(--color-bg, #f0f0f0);
+  color: var(--color-text, #000000);
 }
 
 .content {
@@ -30,6 +14,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  /* espacio para la TabBar flotante: altura + margin-bottom + safe area */
-  padding-bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px));
+  /* padding-top: espacio para botones nativos de Telegram */
+  padding-top: env(safe-area-inset-top, 12px);
+  /* padding-bottom: altura TabBar + su margin + safe area inferior */
+  padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
 }

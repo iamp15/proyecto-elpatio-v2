@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
-import Lobby from './pages/Lobby';
+import Juegos from './pages/Juegos/Juegos';
+import LobbyDomino from './pages/Juegos/domino/LobbyDomino';
 import Piedras from './pages/Piedras';
-import Home from './pages/Home/Home';
 import Wallet from './pages/Wallet/Wallet';
 import Settings from './pages/Settings/Settings';
 
@@ -18,8 +18,8 @@ export default function App() {
       >
         <Routes>
           <Route path="/" element={<MainLayout />}>
-            <Route index element={<Lobby />} />
-            <Route path="home" element={<Home />} />
+            <Route index element={<Juegos />} />
+            <Route path="lobby-domino" element={<LobbyDomino />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="settings" element={<Settings />} />
             <Route path="piedras" element={<Piedras />} />

@@ -10,7 +10,7 @@ function triggerHaptic() {
 }
 
 const tabs = [
-  { to: '/home', label: 'Juegos', icon: IconLudo },
+  { to: '/', label: 'Juegos', icon: IconLudo },
   { to: '/wallet', label: 'Billetera', icon: IconWallet },
   { to: '/settings', label: 'Ajustes', icon: IconSettings },
 ];
@@ -56,10 +56,10 @@ export default function TabBar() {
             aria-current={isActive ? 'page' : undefined}
             onClick={triggerHaptic}
           >
-            <span className={styles.icon}>
-              <Icon />
+            <span className={styles.pill}>
+              <span className={styles.icon}><Icon /></span>
+              <span className={styles.label}>{label}</span>
             </span>
-            <span className={styles.label}>{label}</span>
           </NavLink>
         );
       })}
