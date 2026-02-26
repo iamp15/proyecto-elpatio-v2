@@ -1,2 +1,12 @@
 .root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px;
+}
+
+.summaryCard {
+  margin-left: -16px;
+  margin-right: -16px;
+  padding: 14px 16px 10px;
 }

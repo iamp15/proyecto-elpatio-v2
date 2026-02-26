@@ -4,7 +4,8 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "test:concurrencia": "node test-concurrencia.js"
   },
   "dependencies": {
     "mongoose": "^8.0.3"

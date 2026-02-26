@@ -4,6 +4,7 @@ const GameSession = require('./models/GameSession');
 const Transaction = require('./models/Transaction');
 const DominoMatch = require('./models/DominoMatch');
 const LudoMatch = require('./models/LudoMatch');
+const { createTransaction } = require('./services/createTransaction');
 
 // Configuramos para que Mongoose use promesas modernas
 mongoose.Promise = global.Promise;
@@ -28,13 +29,14 @@ const connectDB = async (uri) => {
   }
 };
 
-// Exportamos la conexión y los modelos
+// Exportamos la conexión, los modelos y el servicio de transacciones
 module.exports = {
   connectDB,
+  createTransaction,
   User,
   GameSession,
   Transaction,
   DominoMatch,
   LudoMatch,
-  mongoose // Por si algún servicio necesita crear una Session manualmente
+  mongoose,
 };

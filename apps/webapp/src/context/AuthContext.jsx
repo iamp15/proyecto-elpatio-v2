@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createApiClient } from '../api/client.js';
 import { fetchBalance } from '../api/balance.js';
+import { fetchWalletBalance, fetchWalletHistory } from '../api/wallet.js';
 
 const STORAGE_KEYS = { token: 'el_patio_token', user: 'el_patio_user' };
 const MOCK_USER_ID = Number(import.meta.env.VITE_MOCK_USER_ID) || 12345678;
@@ -70,9 +71,12 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(stored.token);
   const [user, setUser] = useState(stored.user);
   const [balance, setBalance] = useState(null);
+  const [transactions, setTransactions] = useState([]);
   const [authLoading, setAuthLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceError, setBalanceError] = useState(null);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionsError, setTransactionsError] = useState(null);
   const loginAttempted = useRef(false);
 
   const clearAndRedirect = useCallback(() => {
@@ -80,6 +84,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     setBalance(null);
     setBalanceError(null);
+    setTransactions([]);
+    setTransactionsError(null);
     clearStoredAuth();
     if (typeof window !== 'undefined') window.location.href = '/';
   }, []);
@@ -96,7 +102,13 @@ export function AuthProvider({ children }) {
       if (isTelegramEnv()) {
         const twa = getTelegramWebApp();
         const data = await api.request('POST', '/auth/login', { body: { initData: twa.initData } });
-        const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
+        const twaUser = twa.initDataUnsafe?.user ?? {};
+        const userData = data.user ? {
+          id: data.user.id,
+          username: data.user.username ?? null,
+          first_name: data.user.first_name ?? twaUser.first_name ?? null,
+          photo_url: data.user.photo_url ?? twaUser.photo_url ?? null,
+        } : null;
         setToken(data.token);
         setUser(userData);
         localStorage.setItem(STORAGE_KEYS.token, data.token);
@@ -106,7 +118,12 @@ export function AuthProvider({ children }) {
       }
       if (isDevEnv()) {
         const data = await api.request('POST', '/auth/login', { body: { isMock: true, userId: MOCK_USER_ID } });
-        const userData = data.user ? { id: data.user.id, username: data.user.username ?? null } : null;
+        const userData = data.user ? {
+          id: data.user.id,
+          username: data.user.username ?? null,
+          first_name: data.user.first_name ?? null,
+          photo_url: data.user.photo_url ?? null,
+        } : null;
         setToken(data.token);
         setUser(userData);
         localStorage.setItem(STORAGE_KEYS.token, data.token);
@@ -126,6 +143,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     setBalance(null);
     setBalanceError(null);
+    setTransactions([]);
+    setTransactionsError(null);
     clearStoredAuth();
   }, []);
 
@@ -141,6 +160,24 @@ export function AuthProvider({ children }) {
       setBalance(null);
     } finally {
       setBalanceLoading(false);
+    }
+  }, [token, api]);
+
+  const refreshWallet = useCallback(async () => {
+    if (!token) return;
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    try {
+      const [balanceData, historyData] = await Promise.all([
+        fetchWalletBalance(api.request),
+        fetchWalletHistory(api.request),
+      ]);
+      setBalance(balanceData.piedras ?? null);
+      setTransactions(historyData.transactions ?? []);
+    } catch (e) {
+      setTransactionsError(e?.body?.error || e?.message || 'Error al cargar la billetera');
+    } finally {
+      setTransactionsLoading(false);
     }
   }, [token, api]);
 
@@ -179,11 +216,20 @@ export function AuthProvider({ children }) {
       logout,
       balance,
       refreshBalance,
+      refreshWallet,
+      transactions,
       authLoading,
       balanceLoading,
       balanceError,
+      transactionsLoading,
+      transactionsError,
     }),
-    [user, token, isAuthenticated, login, logout, balance, refreshBalance, authLoading, balanceLoading, balanceError]
+    [
+      user, token, isAuthenticated, login, logout,
+      balance, refreshBalance, refreshWallet, transactions,
+      authLoading, balanceLoading, balanceError,
+      transactionsLoading, transactionsError,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -6,6 +6,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const authRoutes = require('./routes/auth');
 const healthRoutes = require('./routes/health');
 const balanceRoutes = require('./routes/balance');
+const walletRoutes = require('./routes/wallet');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/balance', balanceRoutes);
+app.use('/wallet', walletRoutes);
 
 app.use(errorHandler);
 

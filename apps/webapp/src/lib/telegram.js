@@ -29,3 +29,7 @@ export function onBackButtonClick(callback) {
 export function offBackButtonClick(callback) {
   getTelegramWebApp()?.BackButton.offClick(callback);
 }
+
+export function triggerHaptic(style = 'light') {
+  try { getTelegramWebApp()?.HapticFeedback?.impactOccurred(style); } catch (_) {}
+}

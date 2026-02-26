@@ -1,0 +1,150 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text, #000000);
+}
+
+.card {
+  margin-left: -16px;
+  margin-right: -16px;
+  padding: 6px 16px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-separator, rgba(0, 0, 0, 0.10));
+}
+
+.itemLast {
+  border-bottom: none;
+}
+
+.itemIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text, #000000);
+}
+
+.itemIconPositive {
+  background: rgba(46, 160, 67, 0.12);
+  color: var(--tg-theme-accent-text-color, #2ea043);
+}
+
+.itemIconNegative {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.itemMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #000000);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--tg-theme-hint-color, rgba(0, 0, 0, 0.45));
+}
+
+.amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+}
+
+.amountPositive {
+  color: var(--tg-theme-accent-text-color, #2ea043);
+}
+
+.amountNegative {
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.empty {
+  padding: 16px 0;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--tg-theme-hint-color, rgba(0, 0, 0, 0.45));
+  text-align: center;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+.skeletonBase {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--color-separator, rgba(0, 0, 0, 0.08)) 25%,
+    rgba(0, 0, 0, 0.04)                          50%,
+    var(--color-separator, rgba(0, 0, 0, 0.08)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonIcon {
+  composes: skeletonBase;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.skeletonTitle {
+  composes: skeletonBase;
+  height: 13px;
+  width: 55%;
+  border-radius: 5px;
+}
+
+.skeletonMeta {
+  composes: skeletonBase;
+  height: 10px;
+  width: 35%;
+  border-radius: 4px;
+}
+
+.skeletonAmount {
+  composes: skeletonBase;
+  height: 13px;
+  width: 36px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+

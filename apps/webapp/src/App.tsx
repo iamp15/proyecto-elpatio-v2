@@ -6,6 +6,7 @@ import LobbyDomino from './pages/Juegos/domino/LobbyDomino';
 import Piedras from './pages/Piedras';
 import Wallet from './pages/Wallet/Wallet';
 import Settings from './pages/Settings/Settings';
+import Profile from './pages/Profile/Profile';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="wallet" element={<Wallet />} />
             <Route path="settings" element={<Settings />} />
             <Route path="piedras" element={<Piedras />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
       </BrowserRouter>

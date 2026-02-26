@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import styles from './Juegos.module.css';
+import UserHeader from './UserHeader';
 
 export default function Juegos() {
   const navigate = useNavigate();
   return (
     <div className={styles.root}>
-      <h1 className={styles.heading}>Juegos</h1>
-
+      <UserHeader />
       {/* Tarjeta principal — Dominó */}
-      <div className={`glass-card ${styles.cardMain}`}>
+      <div className={`surface-card ${styles.cardMain}`}>
         <div className={styles.cardBadge}>Disponible</div>
         <div className={styles.cardIcon} aria-hidden>🁣</div>
         <div className={styles.cardBody}>
@@ -23,7 +23,7 @@ export default function Juegos() {
       </div>
 
       {/* Tarjeta secundaria — próximamente */}
-      <div className={`glass-card ${styles.cardSecondary}`} aria-disabled="true">
+      <div className={`surface-card ${styles.cardSecondary}`} aria-disabled="true">
         <span className={styles.soon}>Más juegos próximamente…</span>
       </div>
     </div>

@@ -5,14 +5,6 @@
   padding: 20px 16px;
 }
 
-.heading {
-  margin: 0 0 4px;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-text, #000000);
-}
-
 /* ── Tarjeta principal ─────────────────────── */
 .cardMain {
   display: flex;
@@ -21,6 +13,8 @@
   padding: 24px;
   position: relative;
   overflow: hidden;
+  margin-left: -16px;
+  margin-right: -16px;
 }
 
 .cardBadge {
@@ -78,6 +72,8 @@
   opacity: 0.55;
   cursor: default;
   user-select: none;
+  margin-left: -16px;
+  margin-right: -16px;
 }
 
 .soon {

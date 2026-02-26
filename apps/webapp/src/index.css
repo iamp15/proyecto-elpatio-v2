@@ -7,7 +7,7 @@
   --color-accent:      var(--tg-theme-button-color,        #3390ec);
   --color-btn-text:    var(--tg-theme-button-text-color,   #ffffff);
   --color-separator:   var(--tg-theme-section-separator-color, rgba(0, 0, 0, 0.10));
-  --color-surface:     #ffffff;
+  --color-surface:     var(--tg-theme-secondary-bg-color, #ffffff);
   --color-glass-bg:    #ffffff;
   --color-glass-border:rgba(0, 0, 0, 0.08);
 }

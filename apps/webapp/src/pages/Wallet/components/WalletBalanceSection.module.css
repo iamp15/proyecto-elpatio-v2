@@ -1,0 +1,35 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 6px;
+}
+
+.amount {
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-text, #000000);
+  line-height: 1.05;
+}
+
+.captionRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.captionIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+.captionText {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--tg-theme-hint-color, rgba(0, 0, 0, 0.45));
+}
+

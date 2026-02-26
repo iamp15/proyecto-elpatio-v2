@@ -1,0 +1,98 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-left: -16px;
+  margin-right: -16px;
+}
+
+/* ── Avatar circular ─────────────────────── */
+.avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--color-accent, #3390ec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.avatar:active {
+  transform: scale(0.92);
+  opacity: 0.85;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarInitials {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+/* ── Saludo central ─────────────────────── */
+.greeting {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text, #000000);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 6px;
+}
+
+.name {
+  font-weight: 600;
+}
+
+/* ── Cápsula de balance ─────────────────── */
+.balanceCapsule {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  background: var(--color-glass-bg, #ffffff);
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.balanceCapsule:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+.balanceIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.balanceAmount {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text, #000000);
+  line-height: 1;
+}
