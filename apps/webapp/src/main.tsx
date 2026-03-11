@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './styles/theme.css';
+import './i18n/config';
 
 console.log('[ElPatio] main.tsx cargado (bundle con logs de login)');
 

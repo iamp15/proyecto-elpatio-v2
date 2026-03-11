@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../hooks/useAuth';
-import stonesIcon from '../../../assets/icono-piedras-sinfondo.png';
+import stonesIcon from '../../../assets/icono-piedras-2.png';
 import styles from './WalletBalanceSection.module.css';
 
 function formatBalance(balance) {
@@ -8,14 +9,15 @@ function formatBalance(balance) {
 }
 
 export default function WalletBalanceSection() {
+  const { t } = useTranslation();
   const { balance } = useAuth();
 
   return (
-    <section className={styles.root} aria-label="Balance">
+    <section className={styles.root} aria-label={t('wallet.balanceLabel')}>
       <div className={styles.amount}>{formatBalance(balance)}</div>
       <div className={styles.captionRow}>
         <img className={styles.captionIcon} src={stonesIcon} alt="" aria-hidden />
-        <span className={styles.captionText}>Piedras Disponibles</span>
+        <span className={styles.captionText}>{t('wallet.stonesAvailable')}</span>
       </div>
     </section>
   );

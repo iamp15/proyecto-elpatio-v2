@@ -2,6 +2,8 @@
 
 Pasos para desplegar el api-gateway en Fly.io y usarlo desde la webapp en Vercel.
 
+> **Pruebas online (api-gateway + game-server):** ver [pruebas-online-api-game-flyio.md](./pruebas-online-api-game-flyio.md).
+
 ---
 
 ## Requisitos previos

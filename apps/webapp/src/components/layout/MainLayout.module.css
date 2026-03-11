@@ -1,7 +1,8 @@
 .container {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -18,4 +19,14 @@
   padding-top: env(safe-area-inset-top, 12px);
   /* padding-bottom: altura TabBar + su margin + safe area inferior */
   padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* En partida: fondo oscuro + sin padding inferior (TabBar oculta) */
+.contentGame {
+  background-color: #0d1117;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.containerGame {
+  background-color: #0d1117;
 }

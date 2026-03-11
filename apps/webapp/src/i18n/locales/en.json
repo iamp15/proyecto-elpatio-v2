@@ -1,0 +1,154 @@
+{
+  "lobby": {
+    "play_now": "Play Now",
+    "waiting_players": "Waiting for opponents...",
+    "chooseCategory": "Choose your category",
+    "allowLowerLeague": "Allow matching with lower leagues (Quick match)",
+    "entry": "Entry",
+    "estimatedPrize": "Est. prize",
+    "play": "Play",
+    "comingSoon": "Coming soon",
+    "locked": "Locked",
+    "playCategory": "Play {{category}}",
+    "youAreHere": "YOU ARE HERE",
+    "defaultPlayerName": "Player",
+    "maxRank": "Max Rank",
+    "prLabel": "RP",
+    "prToNext": "{{count}} to {{next}}",
+    "searchingOpponent": "Searching for opponent…",
+    "cancel": "Cancel",
+    "errorPrOutOfRange": "Your RP is not within this category's range.",
+    "errorInsufficientBalance": "Insufficient balance.",
+    "errorQueueReset": "The match was cancelled. Trying again…",
+    "errorServer": "Server error."
+  },
+  "game": {
+    "your_turn": "Your Turn",
+    "rival_turn": "Rival's Turn"
+  },
+  "gameBoard": {
+    "defaultPlayerName": "Player",
+    "you": "You",
+    "rival": "Opponent",
+    "errorConnectRoom": "Error connecting to the room.",
+    "invalidMove": "Invalid move.",
+    "reconnecting": "Reconnecting…",
+    "loadingGame": "Loading game…",
+    "backToLobby": "Back to lobby",
+    "noConnection": "No connection — reconnecting…"
+  },
+  "roundOverOverlay": {
+    "handWon": "HAND WON!",
+    "handLost": "HAND LOST",
+    "handTitle": "Game {{number}}",
+    "preparingNextHand": "Preparing next hand…"
+  },
+  "playerHand": {
+    "tapBoardToPlay": "Tap on the board where to play",
+    "yourTurn": "Your turn",
+    "waiting": "Opponent's turn",
+    "tile": "tile",
+    "tiles": "tiles",
+    "cancel": "Cancel",
+    "drawTile": "Draw tile",
+    "passTurn": "Pass turn",
+    "autoPass": "Passing turn…"
+  },
+  "dominoBoard": {
+    "empty": "The board is empty",
+    "playFirstTile": "Play the first tile"
+  },
+  "dominoGame": {
+    "gameOver": "GAME OVER!"
+  },
+  "matchFoundOverlay": {
+    "rival": "Opponent",
+    "you": "You",
+    "vs": "VS",
+    "pr": "RP"
+  },
+  "gameOverModal": {
+    "victory": "VICTORY!",
+    "goodTry": "Good try",
+    "keepPracticing": "Keep practicing, next time will be yours",
+    "prizeWon": "Prize won",
+    "stones": "Stones",
+    "finalScores": "Final scores",
+    "you": "You",
+    "playerId": "Player #{{id}}",
+    "won": "WON",
+    "pts": "pts",
+    "pointsExplanation": "Points = tiles left in hand. Less is better.",
+    "playAgain": "Play again",
+    "backToLobby": "Back to Lobby"
+  },
+  "turnIndicator": {
+    "turn": "Turn",
+    "tile": "tile",
+    "tiles": "tiles"
+  },
+  "ranks": {
+    "bronce": "Bronze",
+    "plata": "Silver",
+    "oro": "Gold",
+    "diamante": "Diamond"
+  },
+  "player_frame": {
+    "level": "Level",
+    "league": "League"
+  },
+  "juegos": {
+    "available": "Available",
+    "domino": "Domino",
+    "dominoDescription": "Compete in our Domino Leagues and show them who's boss. Play your tiles wisely, climb the ranks, and crown yourself the best at the table. Step in and claim your victory!",
+    "playNow": "Compete now",
+    "moreGamesComing": "More games coming soon…"
+  },
+  "userHeader": {
+    "defaultPlayer": "player",
+    "helloPrefix": "Hello, ",
+    "helloSuffix": "!",
+    "viewProfile": "View profile",
+    "viewWallet": "View wallet"
+  },
+  "tabBar": {
+    "games": "Games",
+    "wallet": "Wallet",
+    "settings": "Settings",
+    "navLabel": "Main navigation"
+  },
+  "profile": {
+    "title": "Profile"
+  },
+  "settings": {
+    "title": "Settings",
+    "comingSoon": "Configuration coming soon."
+  },
+  "wallet": {
+    "balanceLabel": "Balance",
+    "stonesAvailable": "Stones Available",
+    "quickActionsLabel": "Quick actions",
+    "topUp": "Top up",
+    "withdraw": "Withdraw",
+    "history": "History"
+  },
+  "walletActivity": {
+    "label": "Recent activity",
+    "recentActivity": "Recent Activity",
+    "noMovements": "No movements yet.",
+    "deposit": "Deposit",
+    "withdraw": "Withdrawal",
+    "bet": "Bet",
+    "win": "Match Won",
+    "refund": "Refund",
+    "commission": "Commission"
+  },
+  "chat": {
+    "hello": "Hello!",
+    "good_game": "Great move!",
+    "oops": "I messed up...",
+    "lets_go": "Let's go!",
+    "close_one": "Oof, close one",
+    "well_played": "Well played!"
+  }
+}

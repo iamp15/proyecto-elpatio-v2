@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { validateInitData, parseInitDataUser } = require('../lib/telegram');
+const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -34,7 +35,12 @@ router.post('/login', async (req, res, next) => {
       console.log('[auth] Login MOCK OK:', user._id, user.username);
       return res.json({
         token,
-        user: { id: user._id, username: user.username ?? null },
+        user: {
+          id:       user._id,
+          username: user.username ?? null,
+          pr:       user.pr   ?? 1000,
+          rank:     user.rank ?? 'BRONCE',
+        },
       });
     }
 
@@ -72,7 +78,39 @@ router.post('/login', async (req, res, next) => {
     console.log('[auth] Login Telegram OK:', user._id, user.username);
     res.json({
       token,
-      user: { id: user._id, username: user.username ?? null },
+      user: {
+        id:       user._id,
+        username: user.username ?? null,
+        pr:       user.pr   ?? 1000,
+        rank:     user.rank ?? 'BRONCE',
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * GET /auth/me
+ * Devuelve el perfil actualizado del usuario autenticado (pr, rank, balance incluidos).
+ * Úsalo al arrancar la app para sincronizar el localStorage con los datos reales de la BD.
+ */
+router.get('/me', authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user?.userId;
+    const user   = await User.findById(userId).lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      user: {
+        id:       user._id,
+        username: user.username  ?? null,
+        pr:       user.pr        ?? 1000,
+        rank:     user.rank      ?? 'BRONCE',
+      },
     });
   } catch (e) {
     next(e);

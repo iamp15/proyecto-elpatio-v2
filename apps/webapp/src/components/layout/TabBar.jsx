@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styles from './TabBar.module.css';
 
 function triggerHaptic() {
@@ -11,10 +12,10 @@ function triggerHaptic() {
 
 const MAIN_ROUTES = new Set(['/', '/wallet', '/settings']);
 
-const tabs = [
-  { to: '/', label: 'Juegos', icon: IconLudo },
-  { to: '/wallet', label: 'Billetera', icon: IconWallet },
-  { to: '/settings', label: 'Ajustes', icon: IconSettings },
+const TAB_KEYS = [
+  { to: '/', labelKey: 'tabBar.games', icon: IconLudo },
+  { to: '/wallet', labelKey: 'tabBar.wallet', icon: IconWallet },
+  { to: '/settings', labelKey: 'tabBar.settings', icon: IconSettings },
 ];
 
 function IconLudo() {
@@ -44,15 +45,16 @@ function IconSettings() {
 }
 
 export default function TabBar() {
+  const { t } = useTranslation();
   const location = useLocation();
   const isHidden = !MAIN_ROUTES.has(location.pathname);
   return (
     <nav
       className={`${styles.tabBar}${isHidden ? ` ${styles.tabBarHidden}` : ''}`}
       role="tablist"
-      aria-label="Navegación principal"
+      aria-label={t('tabBar.navLabel')}
     >
-      {tabs.map(({ to, label, icon: Icon }) => {
+      {TAB_KEYS.map(({ to, labelKey, icon: Icon }) => {
         const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
         return (
           <NavLink
@@ -65,7 +67,7 @@ export default function TabBar() {
           >
             <span className={styles.pill}>
               <span className={styles.icon}><Icon /></span>
-              <span className={styles.label}>{label}</span>
+              <span className={styles.label}>{t(labelKey)}</span>
             </span>
           </NavLink>
         );

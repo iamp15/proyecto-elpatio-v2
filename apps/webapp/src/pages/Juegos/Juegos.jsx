@@ -1,30 +1,32 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styles from './Juegos.module.css';
 import UserHeader from './UserHeader';
 
 export default function Juegos() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <div className={styles.root}>
       <UserHeader />
       {/* Tarjeta principal — Dominó */}
       <div className={`surface-card ${styles.cardMain}`}>
-        <div className={styles.cardBadge}>Disponible</div>
+        <div className={styles.cardBadge}>{t('juegos.available')}</div>
         <div className={styles.cardIcon} aria-hidden>🁣</div>
         <div className={styles.cardBody}>
-          <h2 className={styles.cardTitle}>Dominó</h2>
+          <h2 className={styles.cardTitle}>{t('juegos.domino')}</h2>
           <p className={styles.cardDescription}>
-            Juega al dominó clásico con amigos en tiempo real. Apuesta tus piedras y demuestra quién domina la mesa.
+            {t('juegos.dominoDescription')}
           </p>
         </div>
         <button type="button" className={`action-button ${styles.cardButton}`} onClick={() => navigate('/lobby-domino')}>
-          Jugar ahora
+          {t('juegos.playNow')}
         </button>
       </div>
 
       {/* Tarjeta secundaria — próximamente */}
       <div className={`surface-card ${styles.cardSecondary}`} aria-disabled="true">
-        <span className={styles.soon}>Más juegos próximamente…</span>
+        <span className={styles.soon}>{t('juegos.moreGamesComing')}</span>
       </div>
     </div>
   );

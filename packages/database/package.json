@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "seed": "node seed.js",
-    "test:concurrencia": "node test-concurrencia.js"
+    "test:concurrencia": "node test-concurrencia.js",
+    "create-user": "node create-test-user.js",
+    "migrate:users": "node migrate-user-schema.js",
+    "seed:config": "node seed-game-config.js"
   },
   "dependencies": {
     "mongoose": "^8.0.3"

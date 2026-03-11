@@ -1,0 +1,970 @@
+/* ── Fuentes para el cuaderno de anotaciones (fin de mano) ───────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Permanent+Marker&display=swap');
+
+/* ── Tema oscuro premium para el juego de Dominó ─────────────────────────── */
+
+:root {
+  --domino-bg:          #0d1117;
+  --domino-surface:     rgba(255, 255, 255, 0.04);
+  --domino-surface-2:   rgba(255, 255, 255, 0.07);
+  --domino-border:      rgba(255, 255, 255, 0.10);
+  --domino-border-2:    rgba(255, 255, 255, 0.16);
+  --domino-text:        #e2e8f0;
+  --domino-text-muted:  rgba(226, 232, 240, 0.45);
+  --domino-neon:        #00e5cc;
+  --domino-neon-dim:    rgba(0, 229, 204, 0.18);
+  --domino-neon-glow:   rgba(0, 229, 204, 0.35);
+  --domino-tile-bg:     #F5F1E7;
+  --domino-dot:         #1A1A1A;
+  --domino-tile-border: #C5A059;
+  --domino-divider:     rgba(197, 160, 89, 0.4);
+  --domino-radius:      12px;
+  --domino-radius-sm:   8px;
+}
+
+/* ── Ocultar scrollbar (tablero vertical) ────────────────────────────── */
+.domino-scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.domino-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Contenedor raíz (tablero de juego) ──────────────────────────────── */
+.domino-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  flex: 1;
+  background: var(--domino-bg);
+  color: var(--domino-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LOBBY — diseño full-screen con gradiente radial
+   ══════════════════════════════════════════════════════════════════════ */
+
+.domino-lobby {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0 16px 28px;
+  background: radial-gradient(circle at top, #1a1c2c 0%, #0d1117 100%);
+  color: var(--domino-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ── Header de usuario ───────────────────────────────────────────────── */
+.domino-lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 20px;
+  gap: 12px;
+}
+
+.domino-lobby-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.domino-lobby-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.domino-lobby-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 229, 204, 0.25), rgba(0, 229, 204, 0.08));
+  border: 1.5px solid rgba(0, 229, 204, 0.30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--domino-neon);
+  flex-shrink: 0;
+}
+
+.domino-lobby-username {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--domino-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.domino-lobby-tagline {
+  font-size: 0.72rem;
+  color: var(--domino-text-muted);
+  line-height: 1.2;
+}
+
+/* Cápsula de saldo con efecto cristal */
+.domino-lobby-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--domino-text);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Toast de error ──────────────────────────────────────────────────── */
+.domino-lobby-error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+/* ── Título de sección ───────────────────────────────────────────────── */
+.domino-lobby-section-title {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--domino-text-muted);
+}
+
+/* ── Filtro de puntos ────────────────────────────────────────────────── */
+.domino-lobby-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.domino-lobby-filter-btn {
+  padding: 7px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--domino-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.domino-lobby-filter-btn.active {
+  background: rgba(0, 229, 204, 0.14);
+  border-color: rgba(0, 229, 204, 0.38);
+  color: var(--domino-neon);
+}
+
+/* ── Lista de modos (cápsulas alargadas tipo glass-card) ──────────────── */
+.domino-lobby-mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.domino-mode-capsule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.domino-mode-capsule:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.domino-mode-capsule-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(0, 229, 204, 0.12);
+  border: 1px solid rgba(0, 229, 204, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.domino-mode-capsule-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.domino-mode-capsule-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.domino-mode-capsule-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--domino-text);
+  line-height: 1.2;
+}
+
+.domino-mode-capsule-sub {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--domino-text-muted);
+}
+
+.domino-mode-capsule-meta {
+  font-size: 0.78rem;
+  color: var(--domino-text-muted);
+  margin-top: 2px;
+}
+
+.domino-mode-capsule-fee {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+/* ── Vista IN_QUEUE ──────────────────────────────────────────────────── */
+.domino-lobby-queue {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.domino-lobby-queue-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  text-align: center;
+  width: 100%;
+}
+
+.domino-lobby-queue-center-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.domino-lobby-queue-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--domino-text);
+}
+
+.domino-lobby-queue-sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--domino-text-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Telegram — modo claro
+   El juego mantiene su propio dark mode incluso en temas claros.
+   Se aumenta ligeramente la opacidad de los bordes para que las
+   tarjetas sean visibles cuando el entorno tiene fondo claro.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  .domino-mode-capsule {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .domino-lobby-balance {
+    border-color: rgba(255, 255, 255, 0.20);
+  }
+
+  .domino-lobby-queue-inner {
+    border-color: rgba(255, 255, 255, 0.20);
+  }
+
+  .domino-lobby-filter-btn {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+}
+
+/* ── Panel de cristal (glass-morphism) ──────────────────────────────── */
+.domino-glass {
+  background: var(--domino-surface);
+  border: 1px solid var(--domino-border);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-radius: var(--domino-radius);
+}
+
+.domino-glass-strong {
+  background: var(--domino-surface-2);
+  border: 1px solid var(--domino-border-2);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-radius: var(--domino-radius);
+}
+
+/* ── Texto neón ──────────────────────────────────────────────────────── */
+.domino-neon-text {
+  color: var(--domino-neon);
+  text-shadow: 0 0 12px var(--domino-neon-glow);
+}
+
+/* ── Badge neón ──────────────────────────────────────────────────────── */
+.domino-neon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 8px;
+  background: var(--domino-neon-dim);
+  color: var(--domino-neon);
+  border: 1px solid var(--domino-neon-glow);
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 8px var(--domino-neon-glow);
+}
+
+/* ── Animación de pulso para el turno activo ─────────────────────────── */
+@keyframes turn-pulse {
+  0%   { box-shadow: 0 0 0 0   var(--domino-neon-glow); }
+  50%  { box-shadow: 0 0 0 8px rgba(0, 229, 204, 0); }
+  100% { box-shadow: 0 0 0 0   var(--domino-neon-glow); }
+}
+
+/* ── Anillo pulsante para PlayerProfileFrame ─────────────────────────── */
+@keyframes profile-ring-pulse {
+  0%   { transform: scale(1);    opacity: 0.7; }
+  70%  { transform: scale(1.35); opacity: 0;   }
+  100% { transform: scale(1.35); opacity: 0;   }
+}
+
+@keyframes turn-pulse-text {
+  0%, 100% { text-shadow: 0 0 6px  var(--domino-neon-glow); }
+  50%       { text-shadow: 0 0 16px rgba(0, 229, 204, 0.7); }
+}
+
+/* ── Spinner de búsqueda ─────────────────────────────────────────────── */
+@keyframes domino-spin {
+  to { transform: rotate(360deg); }
+}
+
+.domino-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--domino-border-2);
+  border-top-color: var(--domino-neon);
+  border-radius: 50%;
+  animation: domino-spin 0.8s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LOBBY HI-FI — Rank Header + Category Cards
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Badge de rango (reutilizado en header y cards) ──────────────────── */
+.domino-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.domino-rank-badge--lg {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  gap: 5px;
+}
+
+.domino-rank-badge--BRONCE  { color: #cd7f32; background: rgba(205,127,50,0.14); border-color: rgba(205,127,50,0.32); }
+.domino-rank-badge--PLATA   { color: #c5cdd3; background: rgba(197,205,211,0.14); border-color: rgba(197,205,211,0.32); }
+.domino-rank-badge--ORO     { color: #ffd54f; background: rgba(255,213,79,0.14); border-color: rgba(255,213,79,0.32); }
+.domino-rank-badge--DIAMANTE{ color: #80deea; background: rgba(128,222,234,0.14); border-color: rgba(128,222,234,0.32); }
+
+/* ── Rank Header ─────────────────────────────────────────────────────── */
+.lobby-rank-header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-radius: 18px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+/* Halo de color de rango en la esquina superior derecha */
+.lobby-rank-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lobby-rank-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lobby-rank-header-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--domino-text);
+  flex-shrink: 0;
+}
+
+.lobby-rank-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lobby-rank-avatar-img,
+.lobby-rank-avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--cat-a, rgba(0,229,204,0.5));
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.3), 0 0 12px var(--cat-a, rgba(0,229,204,0.3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(var(--cat-a-raw, 0,229,204),0.2), rgba(0,0,0,0.3));
+  color: var(--cat-a, #00e5cc);
+}
+
+.lobby-rank-header-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lobby-rank-header-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--domino-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+
+/* ── Barra de progreso de PR ─────────────────────────────────────────── */
+.lobby-pr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-pr-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.lobby-pr-current {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--domino-text);
+  line-height: 1;
+}
+
+.lobby-pr-next-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--domino-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.lobby-pr-bar-track {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 99px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+
+.lobby-pr-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--cat-a, #00e5cc), var(--cat-b, #006680));
+  box-shadow: 0 0 8px var(--cat-a, rgba(0,229,204,0.6));
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lobby-pr-max-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--cat-a, #80deea);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* ── Category Grid ───────────────────────────────────────────────────── */
+.lobby-category-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+/* ── Toggle: Permitir ligas inferiores ────────────────────────────────── */
+.lobby-allow-lower-league {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--domino-radius);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.lobby-allow-lower-league:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.lobby-allow-lower-league-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.lobby-allow-lower-league-switch {
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.lobby-allow-lower-league-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--domino-text);
+  transition: transform 0.2s ease;
+}
+
+.lobby-allow-lower-league-input:checked + .lobby-allow-lower-league-switch {
+  background: rgba(0, 229, 204, 0.2);
+  border-color: rgba(0, 229, 204, 0.45);
+}
+
+.lobby-allow-lower-league-input:checked + .lobby-allow-lower-league-switch::before {
+  transform: translateX(18px);
+  background: var(--domino-neon);
+}
+
+.lobby-allow-lower-league-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--domino-text-muted);
+  line-height: 1.3;
+}
+
+.lobby-allow-lower-league-label svg {
+  flex-shrink: 0;
+  color: var(--domino-neon);
+  opacity: 0.9;
+}
+
+/* ── Categoría "Próximamente" (ORO/DIAMANTE) ─────────────────────────── */
+.lobby-category-card--coming-soon {
+  opacity: 0.85;
+}
+
+/* ── Category Card ───────────────────────────────────────────────────── */
+.lobby-category-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px;
+  border-radius: 20px;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  background: linear-gradient(
+    145deg,
+    rgba(var(--cat-a-raw, 0,229,204), 0.10) 0%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  text-align: left;
+  width: 100%;
+  color: var(--domino-text);
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+/* Borde degradado animado (técnica mask-composite) */
+.lobby-category-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, var(--cat-a, #00e5cc), var(--cat-b, transparent) 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.lobby-category-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Botón "Jugar" dentro de la card ─────────────────────────────────── */
+.lobby-card-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 0;
+  margin-top: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--cat-a, rgba(0,229,204,0.4));
+  background: rgba(var(--cat-a-raw, 0,229,204), 0.14);
+  color: var(--cat-a, #00e5cc);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease, opacity 0.18s ease;
+}
+
+.lobby-card-play-btn:hover:not(:disabled) {
+  background: rgba(var(--cat-a-raw, 0,229,204), 0.22);
+}
+
+.lobby-card-play-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--domino-text-muted);
+}
+
+/* ── Tarjeta de rango activo (resplandor + shimmer + badge) ───────────────── */
+.lobby-category-card--active-rank {
+  /* box-shadow animado vía framer-motion */
+}
+
+.lobby-card-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 35%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+  transform: translateX(-100%);
+}
+
+.lobby-card-active-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(var(--cat-a-raw, 0, 229, 204), 0.25);
+  color: var(--cat-a, #00e5cc);
+  border: 1px solid rgba(var(--cat-a-raw, 0, 229, 204), 0.5);
+  box-shadow: 0 0 12px rgba(var(--cat-a-raw, 0, 229, 204), 0.4);
+  pointer-events: none;
+}
+
+/* Overlay oscuro + candado para tarjetas bloqueadas */
+.lobby-category-card--locked {
+  cursor: default;
+}
+
+.lobby-category-card--locked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.58);
+  pointer-events: none;
+}
+
+/* ── Contenido de la card ────────────────────────────────────────────── */
+.lobby-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lobby-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 8px var(--cat-a, rgba(0,229,204,0.4)));
+}
+
+.lobby-card-lock-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.lobby-card-your-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--cat-a, #00e5cc);
+  color: #0d1117;
+  flex-shrink: 0;
+}
+
+.lobby-card-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--domino-text);
+  line-height: 1.1;
+}
+
+.lobby-card-pr-range {
+  font-size: 0.72rem;
+  color: var(--domino-text-muted);
+  margin-top: 1px;
+}
+
+.lobby-card-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.lobby-card-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 9px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+}
+
+.lobby-card-chip-label {
+  font-size: 0.68rem;
+  color: var(--domino-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.lobby-card-chip-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--cat-a, var(--domino-neon));
+}
+
+/* ── Vista IN_QUEUE ──────────────────────────────────────────────────── */
+.domino-lobby-queue {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.domino-lobby-queue-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  text-align: center;
+  width: 100%;
+}
+
+.domino-lobby-queue-center-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.domino-lobby-queue-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--domino-text);
+}
+
+.domino-lobby-queue-sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--domino-text-muted);
+}
+
+/* Spinner que usa el color del rango activo */
+.lobby-queue-spinner {
+  width: 64px;
+  height: 64px;
+  border: 3px solid rgba(255, 255, 255, 0.10);
+  border-top-color: var(--cat-a, var(--domino-neon));
+  border-radius: 50%;
+  animation: domino-spin 0.9s linear infinite;
+  box-shadow: 0 0 16px var(--cat-a, rgba(0,229,204,0.3));
+}
+
+/* ── Animación shimmer para tarjetas (efecto de brillo) ──────────────── */
+@keyframes lobby-card-shimmer {
+  0%   { transform: translateX(-100%) rotate(15deg); }
+  100% { transform: translateX(200%) rotate(15deg); }
+}
+
+/* ── Botón de acción ─────────────────────────────────────────────────── */
+.domino-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--domino-radius-sm);
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.domino-btn:active { transform: scale(0.96); }
+.domino-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.domino-btn-primary {
+  background: var(--domino-neon);
+  color: #0d1117;
+}
+
+.domino-btn-ghost {
+  background: var(--domino-surface-2);
+  color: var(--domino-text);
+  border: 1px solid var(--domino-border-2);
+}
+
+.domino-btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}

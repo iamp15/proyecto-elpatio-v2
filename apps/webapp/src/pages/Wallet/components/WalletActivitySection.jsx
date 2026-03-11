@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../hooks/useAuth';
 import { IconArrowDown, IconArrowUp } from './WalletIcons';
 import styles from './WalletActivitySection.module.css';
@@ -17,13 +18,13 @@ function SkeletonItem({ isLast }) {
   );
 }
 
-const TYPE_LABELS = {
-  DEPOSIT:    'Recarga',
-  WITHDRAW:   'Retiro',
-  BET:        'Apuesta',
-  WIN:        'Partida Ganada',
-  REFUND:     'Reembolso',
-  COMMISSION: 'Comisión',
+const TYPE_KEYS = {
+  DEPOSIT:    'walletActivity.deposit',
+  WITHDRAW:   'walletActivity.withdraw',
+  BET:        'walletActivity.bet',
+  WIN:        'walletActivity.win',
+  REFUND:     'walletActivity.refund',
+  COMMISSION: 'walletActivity.commission',
 };
 
 function formatDateTime(iso) {
@@ -47,11 +48,12 @@ function formatAmount(amount_subunits) {
 }
 
 export default function WalletActivitySection() {
+  const { t } = useTranslation();
   const { transactions, transactionsLoading, transactionsError } = useAuth();
 
   return (
-    <section className={styles.root} aria-label="Actividad reciente">
-      <h2 className={styles.heading}>Actividad Reciente</h2>
+    <section className={styles.root} aria-label={t('walletActivity.label')}>
+      <h2 className={styles.heading}>{t('walletActivity.recentActivity')}</h2>
 
       <div className={`surface-card ${styles.card}`}>
         {transactionsLoading && Array.from({ length: SKELETON_COUNT }, (_, i) => (
@@ -63,14 +65,14 @@ export default function WalletActivitySection() {
         )}
 
         {!transactionsLoading && !transactionsError && transactions.length === 0 && (
-          <p className={styles.empty}>Aún no hay movimientos.</p>
+          <p className={styles.empty}>{t('walletActivity.noMovements')}</p>
         )}
 
         {!transactionsLoading && transactions.map((tx, idx) => {
           const isLast = idx === transactions.length - 1;
           const isPositive = Number(tx.amount_subunits) > 0;
           const Icon = isPositive ? IconArrowUp : IconArrowDown;
-          const label = TYPE_LABELS[tx.type] ?? tx.type;
+          const label = TYPE_KEYS[tx.type] ? t(TYPE_KEYS[tx.type]) : tx.type;
 
           return (
             <div

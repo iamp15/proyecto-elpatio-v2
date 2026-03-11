@@ -4,6 +4,7 @@ const GameSession = require('./models/GameSession');
 const Transaction = require('./models/Transaction');
 const DominoMatch = require('./models/DominoMatch');
 const LudoMatch = require('./models/LudoMatch');
+const GameConfig = require('./models/GameConfig');
 const { createTransaction } = require('./services/createTransaction');
 
 // Configuramos para que Mongoose use promesas modernas
@@ -38,5 +39,6 @@ module.exports = {
   Transaction,
   DominoMatch,
   LudoMatch,
+  GameConfig,
   mongoose,
 };

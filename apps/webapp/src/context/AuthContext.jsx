@@ -77,6 +77,8 @@ export function AuthProvider({ children }) {
   const [balanceError, setBalanceError] = useState(null);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState(null);
+  // true mientras no hayamos sincronizado el perfil con la BD (evita mostrar datos stale)
+  const [isSyncingProfile, setIsSyncingProfile] = useState(!!stored.token);
   const loginAttempted = useRef(false);
 
   const clearAndRedirect = useCallback(() => {
@@ -104,10 +106,12 @@ export function AuthProvider({ children }) {
         const data = await api.request('POST', '/auth/login', { body: { initData: twa.initData } });
         const twaUser = twa.initDataUnsafe?.user ?? {};
         const userData = data.user ? {
-          id: data.user.id,
-          username: data.user.username ?? null,
+          id:         data.user.id,
+          username:   data.user.username   ?? null,
           first_name: data.user.first_name ?? twaUser.first_name ?? null,
-          photo_url: data.user.photo_url ?? twaUser.photo_url ?? null,
+          photo_url:  data.user.photo_url  ?? twaUser.photo_url  ?? null,
+          pr:         data.user.pr         ?? 1000,
+          rank:       data.user.rank       ?? 'BRONCE',
         } : null;
         setToken(data.token);
         setUser(userData);
@@ -119,10 +123,12 @@ export function AuthProvider({ children }) {
       if (isDevEnv()) {
         const data = await api.request('POST', '/auth/login', { body: { isMock: true, userId: MOCK_USER_ID } });
         const userData = data.user ? {
-          id: data.user.id,
-          username: data.user.username ?? null,
+          id:         data.user.id,
+          username:   data.user.username   ?? null,
           first_name: data.user.first_name ?? null,
-          photo_url: data.user.photo_url ?? null,
+          photo_url:  data.user.photo_url  ?? null,
+          pr:         data.user.pr         ?? 1000,
+          rank:       data.user.rank       ?? 'BRONCE',
         } : null;
         setToken(data.token);
         setUser(userData);
@@ -181,6 +187,47 @@ export function AuthProvider({ children }) {
     }
   }, [token, api]);
 
+  /**
+   * Llama a GET /auth/me para obtener el perfil fresco desde la BD.
+   * Actualiza user y localStorage. Pone isSyncingProfile = false al terminar.
+   */
+  const refreshUser = useCallback(async () => {
+    if (!token) {
+      setIsSyncingProfile(false);
+      return;
+    }
+    try {
+      const data = await api.request('GET', '/auth/me');
+      if (data?.user) {
+        const fresh = {
+          // Conserva campos de sesión (first_name, photo_url) que /me no devuelve
+          ...(user ?? {}),
+          id:   data.user.id,
+          pr:   data.user.pr   ?? 1000,
+          rank: data.user.rank ?? 'BRONCE',
+        };
+        setUser(fresh);
+        try { localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(fresh)); } catch (_) {}
+      }
+    } catch (err) {
+      console.warn('[Auth] refreshUser falló:', err?.message);
+    } finally {
+      setIsSyncingProfile(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, api]);
+
+  // Sincroniza el perfil con la BD al arrancar (si ya hay token en localStorage)
+  useEffect(() => {
+    if (!token) {
+      setIsSyncingProfile(false);
+      return;
+    }
+    refreshUser();
+  // Solo cuando el token cambia (login o recarga)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
   useEffect(() => {
     const twa = getTelegramWebApp();
     if (twa) {
@@ -206,14 +253,27 @@ export function AuthProvider({ children }) {
     }
   }, [token, login]);
 
+  /** Actualiza campos del usuario en memoria y localStorage sin hacer un login completo. */
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...patch };
+      try { localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+  }, []);
+
   const isAuthenticated = !!token;
   const value = useMemo(
     () => ({
       user,
       token,
       isAuthenticated,
+      isSyncingProfile,
       login,
       logout,
+      updateUser,
+      refreshUser,
       balance,
       refreshBalance,
       refreshWallet,
@@ -225,7 +285,8 @@ export function AuthProvider({ children }) {
       transactionsError,
     }),
     [
-      user, token, isAuthenticated, login, logout,
+      user, token, isAuthenticated, isSyncingProfile,
+      login, logout, updateUser, refreshUser,
       balance, refreshBalance, refreshWallet, transactions,
       authLoading, balanceLoading, balanceError,
       transactionsLoading, transactionsError,

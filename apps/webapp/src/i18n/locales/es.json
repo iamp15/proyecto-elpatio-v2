@@ -1,0 +1,154 @@
+{
+  "lobby": {
+    "play_now": "Jugar Ahora",
+    "waiting_players": "Esperando rivales...",
+    "chooseCategory": "Elige tu categoría",
+    "allowLowerLeague": "Permitir emparejamiento con ligas inferiores (Partida rápida)",
+    "entry": "Entrada",
+    "estimatedPrize": "Premio est.",
+    "play": "Jugar",
+    "comingSoon": "Próximamente",
+    "locked": "Bloqueado",
+    "playCategory": "Jugar {{category}}",
+    "youAreHere": "ESTÁS AQUÍ",
+    "defaultPlayerName": "Jugador",
+    "maxRank": "Rango Máximo",
+    "prLabel": "PR",
+    "prToNext": "{{count}} para {{next}}",
+    "searchingOpponent": "Buscando rival…",
+    "cancel": "Cancelar",
+    "errorPrOutOfRange": "Tu PR no está dentro del rango de esta categoría.",
+    "errorInsufficientBalance": "Saldo insuficiente.",
+    "errorQueueReset": "La partida fue cancelada. Intentando de nuevo…",
+    "errorServer": "Error en el servidor."
+  },
+  "game": {
+    "your_turn": "Tu Turno",
+    "rival_turn": "Turno del Rival"
+  },
+  "gameBoard": {
+    "defaultPlayerName": "Jugador",
+    "you": "Tú",
+    "rival": "Rival",
+    "errorConnectRoom": "Error al conectar con la sala.",
+    "invalidMove": "Movimiento inválido.",
+    "reconnecting": "Reconectando…",
+    "loadingGame": "Cargando partida…",
+    "backToLobby": "Volver al lobby",
+    "noConnection": "Sin conexión — reconectando…"
+  },
+  "roundOverOverlay": {
+    "handWon": "¡MANO GANADA!",
+    "handLost": "MANO PERDIDA",
+    "handTitle": "Mano {{number}}",
+    "preparingNextHand": "Preparando siguiente mano…"
+  },
+  "playerHand": {
+    "tapBoardToPlay": "Toca en el tablero dónde jugar",
+    "yourTurn": "Tu turno",
+    "waiting": "Turno del oponente",
+    "tile": "ficha",
+    "tiles": "fichas",
+    "cancel": "Cancelar",
+    "drawTile": "Robar ficha",
+    "passTurn": "Pasar turno",
+    "autoPass": "Pasas turno…"
+  },
+  "dominoBoard": {
+    "empty": "El tablero está vacío",
+    "playFirstTile": "Juega la primera ficha"
+  },
+  "dominoGame": {
+    "gameOver": "¡FIN DE PARTIDA!"
+  },
+  "matchFoundOverlay": {
+    "rival": "Rival",
+    "you": "Tú",
+    "vs": "VS",
+    "pr": "PR"
+  },
+  "gameOverModal": {
+    "victory": "¡VICTORIA!",
+    "goodTry": "Buen intento",
+    "keepPracticing": "Sigue practicando, la próxima será tuya",
+    "prizeWon": "Premio ganado",
+    "stones": "Piedras",
+    "finalScores": "Puntos finales",
+    "you": "Tú",
+    "playerId": "Jugador #{{id}}",
+    "won": "GANÓ",
+    "pts": "pts",
+    "pointsExplanation": "Puntos = fichas restantes en mano. Menos es mejor.",
+    "playAgain": "Jugar de nuevo",
+    "backToLobby": "Volver al Lobby"
+  },
+  "turnIndicator": {
+    "turn": "Turno",
+    "tile": "ficha",
+    "tiles": "fichas"
+  },
+  "ranks": {
+    "bronce": "Bronce",
+    "plata": "Plata",
+    "oro": "Oro",
+    "diamante": "Diamante"
+  },
+  "player_frame": {
+    "level": "Nivel",
+    "league": "Liga"
+  },
+  "juegos": {
+    "available": "Disponible",
+    "domino": "Dominó",
+    "dominoDescription": "Compite en nuestras Ligas de Dominó y demuestra quién manda. Juega tus fichas con astucia, sube de rango y corónate como el mejor de la mesa. ¡Entra y reclama tu victoria!",
+    "playNow": "Compite ahora",
+    "moreGamesComing": "Más juegos próximamente…"
+  },
+  "userHeader": {
+    "defaultPlayer": "jugador",
+    "helloPrefix": "Hola, ",
+    "helloSuffix": "!",
+    "viewProfile": "Ver perfil",
+    "viewWallet": "Ver billetera"
+  },
+  "tabBar": {
+    "games": "Juegos",
+    "wallet": "Billetera",
+    "settings": "Ajustes",
+    "navLabel": "Navegación principal"
+  },
+  "profile": {
+    "title": "Perfil"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "comingSoon": "Configuración próximamente."
+  },
+  "wallet": {
+    "balanceLabel": "Balance",
+    "stonesAvailable": "Piedras Disponibles",
+    "quickActionsLabel": "Acciones rápidas",
+    "topUp": "Recargar",
+    "withdraw": "Retirar",
+    "history": "Historial"
+  },
+  "walletActivity": {
+    "label": "Actividad reciente",
+    "recentActivity": "Actividad Reciente",
+    "noMovements": "Aún no hay movimientos.",
+    "deposit": "Recarga",
+    "withdraw": "Retiro",
+    "bet": "Apuesta",
+    "win": "Partida Ganada",
+    "refund": "Reembolso",
+    "commission": "Comisión"
+  },
+  "chat": {
+    "hello": "Hola",
+    "good_game": "¡Buena jugada!",
+    "oops": "Me pasé...",
+    "lets_go": "¡Vamos!",
+    "close_one": "Uff, casi",
+    "well_played": "¡Bien jugado!"
+  }
+}

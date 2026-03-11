@@ -20,6 +20,8 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
+      MONGO_URI: ${MONGO_URI:-}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
       API_GATEWAY_URL: http://api-gateway:3000
     depends_on:
       - api-gateway

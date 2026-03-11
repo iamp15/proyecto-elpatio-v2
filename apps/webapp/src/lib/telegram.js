@@ -33,3 +33,11 @@ export function offBackButtonClick(callback) {
 export function triggerHaptic(style = 'light') {
   try { getTelegramWebApp()?.HapticFeedback?.impactOccurred(style); } catch (_) {}
 }
+
+/**
+ * Expande la WebApp de Telegram para ocupar toda la pantalla disponible.
+ * Evita bordes inferiores y problemas de viewport en móviles.
+ */
+export function expandWebApp() {
+  try { getTelegramWebApp()?.expand?.(); } catch (_) {}
+}
