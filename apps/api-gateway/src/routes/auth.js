@@ -104,6 +104,10 @@ router.get('/me', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    // #region agent log
+    console.log('[auth] GET /me', { userId, pr: user.pr, rank: user.rank });
+    // #endregion
+
     res.json({
       user: {
         id:       user._id,

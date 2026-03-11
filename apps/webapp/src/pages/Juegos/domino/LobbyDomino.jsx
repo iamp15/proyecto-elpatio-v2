@@ -10,6 +10,14 @@ import './domino.css';
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
 
+// #region agent log
+const DEBUG_LOG = (message, data, hypothesisId) => {
+  try {
+    fetch('http://127.0.0.1:7764/ingest/70fafe70-a2bf-4dc7-ac86-bc9d961d6e39', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b25a51' }, body: JSON.stringify({ sessionId: 'b25a51', location: 'LobbyDomino.jsx', message, data: data ?? {}, hypothesisId: hypothesisId ?? null, timestamp: Date.now() }) }).catch(() => {});
+  } catch (_) {}
+};
+// #endregion
+
 /**
  * Constantes visuales por rango (puramente de UI: colores y emoji).
  * La fuente de verdad para minPR, maxPR, entryFee, etc. viene del servidor
@@ -425,6 +433,12 @@ export default function LobbyDomino() {
   const [error,          setError]          = useState('');
   const socketRef    = useRef(null);
   const configLoaded = useRef(false);
+
+  // #region agent log
+  useEffect(() => {
+    DEBUG_LOG('LobbyDomino displaying user data', { userPR, userRank, balance, isSyncingProfile }, 'H5');
+  }, [userPR, userRank, balance, isSyncingProfile]);
+  // #endregion
 
   // Fuerza fondo oscuro mientras el lobby está montado
   useEffect(() => {

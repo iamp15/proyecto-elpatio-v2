@@ -66,6 +66,14 @@ function clearStoredAuth() {
 
 const AuthContext = createContext(null);
 
+const DEBUG_LOG = (message, data, hypothesisId) => {
+  try {
+    // #region agent log
+    fetch('http://127.0.0.1:7764/ingest/70fafe70-a2bf-4dc7-ac86-bc9d961d6e39', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b25a51' }, body: JSON.stringify({ sessionId: 'b25a51', location: 'AuthContext.jsx', message, data: data ?? {}, hypothesisId: hypothesisId ?? null, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+  } catch (_) {}
+};
+
 export function AuthProvider({ children }) {
   const stored = readStoredAuth();
   const [token, setToken] = useState(stored.token);
@@ -80,6 +88,13 @@ export function AuthProvider({ children }) {
   // true mientras no hayamos sincronizado el perfil con la BD (evita mostrar datos stale)
   const [isSyncingProfile, setIsSyncingProfile] = useState(!!stored.token);
   const loginAttempted = useRef(false);
+  // #region agent log
+  useEffect(() => {
+    if (stored.user != null) {
+      DEBUG_LOG('stored user from localStorage', { pr: stored.user.pr, rank: stored.user.rank }, 'H1');
+    }
+  }, []);
+  // #endregion
 
   const clearAndRedirect = useCallback(() => {
     setToken(null);
@@ -113,6 +128,9 @@ export function AuthProvider({ children }) {
           pr:         data.user.pr         ?? 1000,
           rank:       data.user.rank       ?? 'BRONCE',
         } : null;
+        // #region agent log
+        DEBUG_LOG('login setUser (Telegram)', userData ? { pr: userData.pr, rank: userData.rank } : null, 'H4');
+        // #endregion
         setToken(data.token);
         setUser(userData);
         localStorage.setItem(STORAGE_KEYS.token, data.token);
@@ -196,8 +214,14 @@ export function AuthProvider({ children }) {
       setIsSyncingProfile(false);
       return;
     }
+    // #region agent log
+    DEBUG_LOG('refreshUser started', { hasToken: !!token }, 'H1');
+    // #endregion
     try {
       const data = await api.request('GET', '/auth/me');
+      // #region agent log
+      DEBUG_LOG('GET /auth/me response', data?.user ? { pr: data.user.pr, rank: data.user.rank } : { noUser: true }, 'H2');
+      // #endregion
       if (data?.user) {
         const fresh = {
           // Conserva campos de sesión (first_name, photo_url) que /me no devuelve
@@ -206,10 +230,16 @@ export function AuthProvider({ children }) {
           pr:   data.user.pr   ?? 1000,
           rank: data.user.rank ?? 'BRONCE',
         };
+        // #region agent log
+        DEBUG_LOG('setUser with fresh profile', { pr: fresh.pr, rank: fresh.rank }, 'H3');
+        // #endregion
         setUser(fresh);
         try { localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(fresh)); } catch (_) {}
       }
     } catch (err) {
+      // #region agent log
+      DEBUG_LOG('refreshUser failed', { message: err?.message, status: err?.status }, 'H2');
+      // #endregion
       console.warn('[Auth] refreshUser falló:', err?.message);
     } finally {
       setIsSyncingProfile(false);
