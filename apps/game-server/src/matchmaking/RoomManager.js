@@ -69,6 +69,21 @@ class RoomManager {
     return this._rooms.get(roomId) ?? null;
   }
 
+  /**
+   * Sala con partida en curso donde participa el usuario (reconexión / handshake).
+   * @param {string} userId
+   * @returns {import('./Room').Room|null}
+   */
+  findActiveGameRoomForUser(userId) {
+    for (const room of this._rooms.values()) {
+      if (room.status !== 'IN_GAME' || !room.game) continue;
+      if (room.players.some((p) => p.userId === userId)) {
+        return room;
+      }
+    }
+    return null;
+  }
+
   delete(roomId) {
     const room = this._rooms.get(roomId);
     if (room) {

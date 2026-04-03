@@ -75,11 +75,18 @@ export default function GameDominoBoardPage() {
     const alreadyShownForThisRoom = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(versusKey);
 
     const fromMatchmaking = location.state?.fromMatchmaking === true;
+    const fromReconnect = location.state?.fromReconnect === true;
     const gameAlreadyInProgress =
       (payload.state?.board?.length ?? 0) > 0 ||
       (payload.state?.hand?.length ?? 0) < 7;
 
-    if (fromMatchmaking && !gameAlreadyInProgress && !alreadyShownForThisRoom && payload.players?.length >= 2) {
+    if (
+      fromMatchmaking &&
+      !fromReconnect &&
+      !gameAlreadyInProgress &&
+      !alreadyShownForThisRoom &&
+      payload.players?.length >= 2
+    ) {
       const me = payload.players.find((p) => p.userId === myUserId);
       const opponent = payload.players.find((p) => p.userId !== myUserId);
       setMatchOverlayData({

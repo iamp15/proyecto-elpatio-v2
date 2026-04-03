@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
 import useGameSounds from './hooks/useGameSounds';
+import { attachDominoSocketHeartbeat } from './attachDominoSocketHeartbeat';
 import InsufficientBalanceModal from './components/InsufficientBalanceModal';
 import './domino.css';
 
@@ -515,6 +516,16 @@ export default function LobbyDomino() {
       transports: ['websocket'],
     });
 
+    attachDominoSocketHeartbeat(configSocket);
+
+    configSocket.on('reconnect_game', (payload) => {
+      const id = payload?.roomId;
+      if (!id) return;
+      navigate(`/juegos/domino/${id}`, { replace: true, state: { fromReconnect: true } });
+      configLoaded.current = true;
+      configSocket.disconnect();
+    });
+
     configSocket.once('init_lobby_config', ({ categories: serverCats }) => {
       setCategories(mergeWithVisuals(serverCats));
       configLoaded.current = true;
@@ -528,7 +539,7 @@ export default function LobbyDomino() {
     return () => {
       configSocket.disconnect();
     };
-  }, [token]);
+  }, [token, navigate]);
 
   // Limpiar socket de matchmaking al desmontar
   useEffect(() => {
@@ -550,6 +561,16 @@ export default function LobbyDomino() {
     });
 
     socketRef.current = socket;
+    attachDominoSocketHeartbeat(socket);
+
+    socket.on('reconnect_game', (payload) => {
+      const id = payload?.roomId;
+      if (!id) return;
+      socket.disconnect();
+      socketRef.current = null;
+      setView('SELECT_MODE');
+      navigate(`/juegos/domino/${id}`, { replace: true, state: { fromReconnect: true } });
+    });
 
     socket.on('connect', () => {
       socket.emit('join_queue', { categoryId, allowLowerLeague: allowLower });

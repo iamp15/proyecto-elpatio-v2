@@ -8,6 +8,7 @@ const { enrichPlayersWithUsernames } = require('../matchmaking/enrichPlayers');
 const configManager = require('../config/ConfigManager');
 const { User } = require('@el-patio/database');
 const timerManager = require('../utils/TimerManager');
+const { setupDominoHeartbeat } = require('../sockets/setupDominoHeartbeat');
 
 /**
  * Registra el namespace /domino en la instancia de Socket.io.
@@ -189,43 +190,6 @@ function createDominoNamespace(io) {
           }
         }
 
-        plan.forEach((action, i) => {
-          const isLast = i === plan.length - 1;
-
-          setTimeout(async () => {
-            try {
-              // Guardia: la sala/partida puede haber terminado entre steps
-              if (!room.game || room.status !== 'IN_GAME') {
-                room._autoPlayPending = false;
-                return;
-              }
-              // Guardia: si el jugador ya actuó manualmente, cancelamos
-              if (room.game.turn !== timedOutPlayerId && !isLast) {
-                room._autoPlayPending = false;
-                return;
-              }
-
-              // Notificar al cliente para reproducir el sonido del paso
-              nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
-
-              const stepResult = room.game.handleAction(timedOutPlayerId, action);
-
-              if (isLast) {
-                room._autoPlayPending = false;
-                await _broadcastResult(room, stepResult);
-              } else {
-                // Paso intermedio (robo): emitir estado actualizado a cada jugador
-                room.players.forEach((p) => {
-                  p.socket?.emit('game_state', room.game.getState(p.userId));
-                });
-              }
-            } catch (err) {
-              room._autoPlayPending = false;
-              console.error(`[Domino] Error en step ${i} autoplay (sala=${room.roomId}):`, err.message);
-            }
-          }, i * AUTOPLAY_STEP_MS);
-        });
-
       } catch (err) {
         console.error(`[Domino] Error en timeout check (sala=${room.roomId}):`, err.message);
       }
@@ -243,13 +207,33 @@ function createDominoNamespace(io) {
 
     console.log(`[Domino] Conectado: userId=${userId} (socket=${socket.id})`);
 
-    // ── Configuración inicial del lobby ────────────────────────────────────────
-    socket.emit('init_lobby_config', {
-      categories: configManager.getAllRanks('domino').map((c) => ({
-        ...c,
-        maxPR: c.maxPR === Infinity ? null : c.maxPR,
-      })),
-    });
+    // Handshake async sin bloquear el registro de listeners (evita carrera con join_queue).
+    void (async () => {
+      try {
+        const room = roomManager.findActiveGameRoomForUser(userId);
+        if (room?.game && room.players.some((p) => p.userId === userId)) {
+          const enrichedPlayers = await enrichPlayersWithUsernames(room);
+          socket.emit('reconnect_game', {
+            roomId: room.roomId,
+            categoryId: room.modeId,
+            config: room.config,
+            players: enrichedPlayers,
+            state: room.game.getState(userId),
+          });
+          console.log(`[Domino] reconnect_game (handshake) userId=${userId} room=${room.roomId}`);
+        }
+      } catch (err) {
+        console.error(`[Domino] Error handshake reconnect_game (userId=${userId}):`, err.message);
+      }
+      socket.emit('init_lobby_config', {
+        categories: configManager.getAllRanks('domino').map((c) => ({
+          ...c,
+          maxPR: c.maxPR === Infinity ? null : c.maxPR,
+        })),
+      });
+    })();
+
+    setupDominoHeartbeat(socket);
 
     // ── join_queue ─────────────────────────────────────────────────────────────
     socket.on('join_queue', async ({ categoryId, allowLowerLeague = false } = {}) => {

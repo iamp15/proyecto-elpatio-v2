@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io } from 'socket.io-client';
+import { attachDominoSocketHeartbeat } from './attachDominoSocketHeartbeat';
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
 
@@ -82,6 +83,7 @@ export function useGameSocket({
     });
 
     socketRef.current = socket;
+    attachDominoSocketHeartbeat(socket);
 
     socket.on('connect', () => {
       setConnected(true);

@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import TabBar from './TabBar';
+import DominoSessionSync from '../DominoSessionSync';
 import styles from './MainLayout.module.css';
 import useTelegramBackButton from '../../hooks/useTelegramBackButton';
 
@@ -12,6 +13,7 @@ export default function MainLayout() {
 
   return (
     <div className={`${styles.container} ${isGame ? styles.containerGame : ''}`}>
+      <DominoSessionSync />
       <main className={`${styles.content} ${isGame ? styles.contentGame : ''}`}>
         <Outlet />
       </main>
