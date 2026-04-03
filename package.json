@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "eruda": "^3.4.3",
+    "howler": "^2.2.4",
     "i18next": "^25.8.16",
     "mongodb": "^7.1.0",
     "react-i18next": "^16.5.6"

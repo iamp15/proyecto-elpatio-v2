@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../../../context/AuthContext';
+import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
+import useGameSounds from './hooks/useGameSounds';
 import './domino.css';
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
@@ -299,7 +301,7 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
  * Si isActiveRank, aplica resplandor pulsante, shimmer y badge "ESTÁS AQUÍ".
  * isComingSoon: desbloqueada por rango pero matchmaking no disponible (ej. ORO/DIAMANTE).
  */
-function CategoryCard({ cat, isEligible, isComingSoon, index, onSelect, isActiveRank, t }) {
+function CategoryCard({ cat, isEligible, isComingSoon, index, onSelect, isActiveRank, onPlayButton, t }) {
   const maxDisplay = cat.maxPR === Infinity ? '∞' : cat.maxPR;
   const glowColor = `rgba(${cat.colorARaw}, 0.45)`;
 
@@ -393,7 +395,12 @@ function CategoryCard({ cat, isEligible, isComingSoon, index, onSelect, isActive
 
       <motion.button
         className="lobby-card-play-btn"
-        onClick={() => isEligible && onSelect(cat)}
+        onClick={() => {
+          if (isEligible) {
+            onPlayButton?.();
+            onSelect(cat);
+          }
+        }}
         disabled={!isEligible}
         whileTap={isEligible ? {
           scale: 0.94,
@@ -413,6 +420,8 @@ export default function LobbyDomino() {
   const { t } = useTranslation();
   const { token, balance, user, updateUser, isSyncingProfile } = useAuth();
   const navigate = useNavigate();
+  const { playButton, playLobbyMusic, stopLobbyMusic } = useGameSounds();
+  const { settings: audioSettings } = useAudioSettings();
 
   const userPR   = user?.pr   ?? 1000;
   const userRank = user?.rank ?? 'BRONCE';
@@ -437,6 +446,16 @@ export default function LobbyDomino() {
       }
     };
   }, []);
+
+  // Música del lobby: arranca si no está silenciada; reacciona a Ajustes (mute música / todo).
+  useEffect(() => {
+    if (audioSettings.masterMute || audioSettings.musicMute) {
+      stopLobbyMusic();
+    } else {
+      playLobbyMusic();
+    }
+    return () => stopLobbyMusic();
+  }, [audioSettings.masterMute, audioSettings.musicMute, playLobbyMusic, stopLobbyMusic]);
 
   // Conexión de configuración: carga init_lobby_config al montar
   useEffect(() => {
@@ -636,6 +655,7 @@ export default function LobbyDomino() {
                       isComingSoon={isComingSoon}
                       index={i}
                       onSelect={handleSelectCategory}
+                      onPlayButton={playButton}
                       isActiveRank={isActiveRank}
                       t={t}
                     />
@@ -691,7 +711,10 @@ export default function LobbyDomino() {
 
               <button
                 className="domino-btn domino-btn-danger"
-                onClick={handleCancel}
+                onClick={() => {
+                  playButton();
+                  handleCancel();
+                }}
               >
                 {t('lobby.cancel')}
               </button>

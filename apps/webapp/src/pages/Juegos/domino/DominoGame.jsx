@@ -7,6 +7,8 @@ import PlayerHand         from './components/PlayerHand';
 import PlayerProfileFrame from './components/PlayerProfileFrame';
 import ChatBubble         from './components/ChatBubble';
 import PlayerChatControls from './components/PlayerChatControls';
+import TurnTimer          from './components/TurnTimer';
+import useGameSounds      from './hooks/useGameSounds';
 
 /**
  * Layout puro del juego de Dominó.
@@ -40,6 +42,7 @@ export default function DominoGame({
   onSendChat,
 }) {
   const { t } = useTranslation();
+  const sounds = useGameSounds();
   const {
     board               = [],
     boardEnds           = null,
@@ -53,6 +56,7 @@ export default function DominoGame({
     targetScore         = null,
     status,
     winner,
+    turnEndsAt,
   } = gameState;
 
   const isMyTurn = turn === myUserId;
@@ -69,8 +73,6 @@ export default function DominoGame({
   } : null;
   const opponentTileCount = opponentData ? (opponentTileCounts[opponentData.userId] ?? null) : null;
   const isOpponentTurn    = turn === opponentData?.userId;
-
-  const isFinishing = status === 'FINISHED';
 
   useEffect(() => {
     if (!isMyTurn) setSelectedTileForPosition(null);
@@ -89,8 +91,9 @@ export default function DominoGame({
 
   const handlePlayTile = useCallback((tile, side) => {
     setSelectedTileForPosition(null);
+    sounds.playClack();
     onAction('play_tile', { tile, side });
-  }, [onAction]);
+  }, [onAction, sounds]);
 
   const handleSelectTileForPosition = useCallback((tile) => {
     setSelectedTileForPosition(tile);
@@ -106,10 +109,12 @@ export default function DominoGame({
   }, [selectedTileForPosition, handlePlayTile]);
 
   function handleDrawTile() {
+    sounds.playClack2();
     onAction('draw_tile');
   }
 
   function handlePass() {
+    sounds.playPass();
     onAction('pass');
   }
 
@@ -148,42 +153,21 @@ export default function DominoGame({
         localPlayerId={myUserId}
       />
 
-      {/* Animación de Transición al ganar/perder */}
-      <AnimatePresence>
-        {isFinishing && !isGameOverModalVisible && (
-          /* 1. Contenedor de Posicionamiento Fijo (HTML Puro, a prueba de fallos) */
-          <div className="fixed inset-0 w-full h-[100dvh] flex items-center justify-center z-[100] pointer-events-none">
-
-            {/* 2. Contenedor Animado (Framer Motion solo afecta el interior) */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5, y: 50 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 1.5 }}
-              transition={{ type: 'spring', bounce: 0.6, duration: 0.8 }}
-              className="text-center"
-            >
-              <div className="relative inline-block">
-                <h1
-                  className="text-5xl md:text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-2xl text-center px-4"
-                  style={{ WebkitTextStroke: '2px #422006' }}
-                >
-                  FIN DE LA PARTIDA
-                </h1>
-                {/* Resplandor detrás del texto */}
-                <div className="absolute inset-0 bg-yellow-500/30 blur-3xl -z-10 rounded-full scale-150" />
-              </div>
-            </motion.div>
-
-          </div>
-        )}
-      </AnimatePresence>
+      {/* ── Temporizador de Urgencia ── */}
+      <TurnTimer
+        turnEndsAt={turnEndsAt}
+        isMyTurn={isMyTurn}
+      />
 
       {/* ── Marco del Jugador Local (Abajo Izquierda) ── */}
       {myPlayer && (
         <div style={{ position: 'absolute', bottom: '148px', left: '16px', zIndex: 40, pointerEvents: 'none' }}>
           {onSendChat && (
             <PlayerChatControls
-              onSendChat={(type, content) => onSendChat?.(type, content)}
+              onSendChat={(type, content) => {
+                sounds.playChatPop();
+                onSendChat?.(type, content);
+              }}
             />
           )}
           <ChatBubble bubble={chatBubbles[myUserId]} isOpponent={false} />

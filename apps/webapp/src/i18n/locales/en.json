@@ -35,7 +35,8 @@
     "reconnecting": "Reconnecting…",
     "loadingGame": "Loading game…",
     "backToLobby": "Back to lobby",
-    "noConnection": "No connection — reconnecting…"
+    "noConnection": "No connection — reconnecting…",
+    "gameCancelled": "The match was cancelled."
   },
   "roundOverOverlay": {
     "handWon": "HAND WON!",
@@ -82,6 +83,22 @@
     "playAgain": "Play again",
     "backToLobby": "Back to Lobby"
   },
+  "gameOptions": {
+    "title": "Options",
+    "sounds": "Sounds",
+    "forfeit": "Forfeit",
+    "soundsTitle": "Adjust in-game audio",
+    "master": "Master",
+    "sfx": "Sound effects",
+    "music": "Music",
+    "enabled": "Enabled",
+    "muted": "Muted",
+    "back": "Back",
+    "confirmTitle": "Confirm forfeit",
+    "confirmWarning": "If you forfeit now, you will lose this match, your RP, and your entry stones.",
+    "confirm": "Yes, forfeit",
+    "cancel": "Cancel"
+  },
   "turnIndicator": {
     "turn": "Turn",
     "tile": "tile",
@@ -122,7 +139,17 @@
   },
   "settings": {
     "title": "Settings",
-    "comingSoon": "Configuration coming soon."
+    "comingSoon": "Configuration coming soon.",
+    "audioSectionTitle": "Audio & sound",
+    "masterMuteLabel": "Mute all",
+    "masterMuteHint": "Turns off all in-game audio",
+    "masterVolumeLabel": "Master volume",
+    "sfxVolumeLabel": "SFX volume",
+    "musicVolumeLabel": "Music volume",
+    "sfxLabel": "Sound effects",
+    "sfxHint": "Tiles, notifications, alerts",
+    "musicLabel": "Background music",
+    "musicHint": "Music in the main menu"
   },
   "wallet": {
     "balanceLabel": "Balance",

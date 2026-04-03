@@ -35,7 +35,8 @@
     "reconnecting": "Reconectando…",
     "loadingGame": "Cargando partida…",
     "backToLobby": "Volver al lobby",
-    "noConnection": "Sin conexión — reconectando…"
+    "noConnection": "Sin conexión — reconectando…",
+    "gameCancelled": "La partida fue cancelada."
   },
   "roundOverOverlay": {
     "handWon": "¡MANO GANADA!",
@@ -82,6 +83,22 @@
     "playAgain": "Jugar de nuevo",
     "backToLobby": "Volver al Lobby"
   },
+  "gameOptions": {
+    "title": "Opciones",
+    "sounds": "Sonidos",
+    "forfeit": "Abandonar",
+    "soundsTitle": "Configura el audio de la partida",
+    "master": "Principal",
+    "sfx": "Efectos",
+    "music": "Música",
+    "enabled": "Activado",
+    "muted": "Silenciado",
+    "back": "Volver",
+    "confirmTitle": "Confirmar abandono",
+    "confirmWarning": "Si abandonas ahora, perderás esta partida, tu PR y tus piedras de entrada.",
+    "confirm": "Sí, abandonar",
+    "cancel": "Cancelar"
+  },
   "turnIndicator": {
     "turn": "Turno",
     "tile": "ficha",
@@ -122,7 +139,17 @@
   },
   "settings": {
     "title": "Ajustes",
-    "comingSoon": "Configuración próximamente."
+    "comingSoon": "Configuración próximamente.",
+    "audioSectionTitle": "Audio y sonido",
+    "masterMuteLabel": "Silenciar todo",
+    "masterMuteHint": "Apaga todos los sonidos del juego",
+    "masterVolumeLabel": "Volumen general",
+    "sfxVolumeLabel": "Volumen de efectos",
+    "musicVolumeLabel": "Volumen de música",
+    "sfxLabel": "Efectos de sonido",
+    "sfxHint": "Fichas, notificaciones, alertas",
+    "musicLabel": "Música de fondo",
+    "musicHint": "Música en el menú principal"
   },
   "wallet": {
     "balanceLabel": "Balance",

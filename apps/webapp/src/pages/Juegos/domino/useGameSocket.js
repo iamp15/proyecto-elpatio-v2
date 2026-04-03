@@ -25,6 +25,7 @@ const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhos
  *   connected:   boolean,
  *   reconnecting: boolean,
  *   sendAction:  (actionType: string, data?: object) => void,
+ *   sendForfeit: () => void,
  *   sendChat:    (type: string, content: string) => void,
  * }}
  */
@@ -38,6 +39,8 @@ export function useGameSocket({
   onRoundOver,
   onChatMessage,
   onInvalidMove,
+  onAutoPlayAction,
+  onGameCancelled,
   onError,
 }) {
   const socketRef     = useRef(null);
@@ -45,23 +48,27 @@ export function useGameSocket({
   const [reconnecting, setReconnecting] = useState(false);
 
   // Callbacks estables en refs para evitar re-subscripciones por cambio de referencia
-  const onRejoinedRef    = useRef(onRejoined);
-  const onGameStateRef   = useRef(onGameState);
-  const onGameOverRef    = useRef(onGameOver);
-  const onPRUpdatedRef   = useRef(onPRUpdated);
-  const onRoundOverRef   = useRef(onRoundOver);
-  const onChatMessageRef = useRef(onChatMessage);
-  const onInvalidMoveRef = useRef(onInvalidMove);
-  const onErrorRef       = useRef(onError);
+  const onRejoinedRef          = useRef(onRejoined);
+  const onGameStateRef         = useRef(onGameState);
+  const onGameOverRef          = useRef(onGameOver);
+  const onPRUpdatedRef         = useRef(onPRUpdated);
+  const onRoundOverRef         = useRef(onRoundOver);
+  const onChatMessageRef       = useRef(onChatMessage);
+  const onInvalidMoveRef       = useRef(onInvalidMove);
+  const onAutoPlayActionRef    = useRef(onAutoPlayAction);
+  const onGameCancelledRef     = useRef(onGameCancelled);
+  const onErrorRef             = useRef(onError);
 
-  useEffect(() => { onRejoinedRef.current    = onRejoined;    }, [onRejoined]);
-  useEffect(() => { onGameStateRef.current   = onGameState;   }, [onGameState]);
-  useEffect(() => { onGameOverRef.current    = onGameOver;    }, [onGameOver]);
-  useEffect(() => { onPRUpdatedRef.current   = onPRUpdated;   }, [onPRUpdated]);
-  useEffect(() => { onRoundOverRef.current   = onRoundOver;   }, [onRoundOver]);
-  useEffect(() => { onChatMessageRef.current  = onChatMessage; }, [onChatMessage]);
-  useEffect(() => { onInvalidMoveRef.current = onInvalidMove; }, [onInvalidMove]);
-  useEffect(() => { onErrorRef.current       = onError;       }, [onError]);
+  useEffect(() => { onRejoinedRef.current         = onRejoined;       }, [onRejoined]);
+  useEffect(() => { onGameStateRef.current        = onGameState;      }, [onGameState]);
+  useEffect(() => { onGameOverRef.current         = onGameOver;       }, [onGameOver]);
+  useEffect(() => { onPRUpdatedRef.current        = onPRUpdated;      }, [onPRUpdated]);
+  useEffect(() => { onRoundOverRef.current        = onRoundOver;      }, [onRoundOver]);
+  useEffect(() => { onChatMessageRef.current      = onChatMessage;    }, [onChatMessage]);
+  useEffect(() => { onInvalidMoveRef.current      = onInvalidMove;    }, [onInvalidMove]);
+  useEffect(() => { onAutoPlayActionRef.current   = onAutoPlayAction; }, [onAutoPlayAction]);
+  useEffect(() => { onGameCancelledRef.current    = onGameCancelled;  }, [onGameCancelled]);
+  useEffect(() => { onErrorRef.current            = onError;          }, [onError]);
 
   useEffect(() => {
     if (!token || !roomId) return;
@@ -120,6 +127,14 @@ export function useGameSocket({
       onInvalidMoveRef.current?.(payload);
     });
 
+    socket.on('autoplay_action', (payload) => {
+      onAutoPlayActionRef.current?.(payload);
+    });
+
+    socket.on('game_cancelled', (payload) => {
+      onGameCancelledRef.current?.(payload);
+    });
+
     socket.on('rejoin_error', (payload) => {
       onErrorRef.current?.(payload);
     });
@@ -148,5 +163,11 @@ export function useGameSocket({
     }
   }, []);
 
-  return { connected, reconnecting, sendAction, sendChat };
+  const sendForfeit = useCallback(() => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('forfeit_game');
+    }
+  }, []);
+
+  return { connected, reconnecting, sendAction, sendForfeit, sendChat };
 }

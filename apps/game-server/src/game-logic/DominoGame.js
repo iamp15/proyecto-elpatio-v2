@@ -36,6 +36,8 @@ class DominoGame extends BaseGame {
     this.winner        = null;
     this.consecutivePasses = 0;
     this._lastStarter = null;
+    this.turnDuration = 30000; // 30 segundos en milisegundos
+    this.turnStartTime = Date.now();
 
     // Sistema de puntos por liga
     /** @type {Object.<number, number>} */
@@ -80,6 +82,24 @@ class DominoGame extends BaseGame {
   _nextTurn() {
     const idx = this.playerOrder.indexOf(this.turn);
     this.turn = this.playerOrder[(idx + 1) % this.playerOrder.length];
+    this.turnStartTime = Date.now();
+  }
+
+  /**
+   * Obtiene los extremos válidos donde una ficha puede jugarse.
+   * @param {{a:number,b:number}} tile
+   * @returns {Array<'left'|'right'>}
+   */
+  _getValidPositionsForTile(tile) {
+    if (!this.boardEnds) return ['left'];
+    const positions = [];
+    if (tile.a === this.boardEnds.left || tile.b === this.boardEnds.left) {
+      positions.push('left');
+    }
+    if (tile.a === this.boardEnds.right || tile.b === this.boardEnds.right) {
+      positions.push('right');
+    }
+    return positions;
   }
 
   /**
@@ -202,30 +222,54 @@ class DominoGame extends BaseGame {
   /**
    * Maneja el final de una mano, calcula los puntos y verifica la condición de victoria global.
    * @param {number} winnerId
+   * @param {boolean} [isBlocked=false]
    * @returns {object} Resultado de la acción para el socket handler
    */
-  _handleHandEnd(winnerId) {
+  _handleHandEnd(winnerId, isBlocked = false) {
     const handScores = this._getFinalScores(); // { uid: pips }
 
-    // En dominó, el ganador se lleva la suma de los puntos de las fichas de los perdedores
     let pointsWon = 0;
-    for (const uid in handScores) {
-      if (String(uid) !== String(winnerId)) {
-        pointsWon += handScores[uid];
+
+    if (isBlocked) {
+      // REGLA DE LA DIFERENCIA: Puntos del rival - Puntos del ganador
+      const winnerPips = handScores[winnerId] || 0;
+      let opponentPips = 0;
+
+      for (const uid in handScores) {
+        if (String(uid) !== String(winnerId)) {
+          opponentPips = handScores[uid];
+        }
+      }
+      // El ganador suma la diferencia (mínimo 0 por seguridad)
+      pointsWon = Math.max(0, opponentPips - winnerPips);
+    } else {
+      // REGLA CLÁSICA (Ganar por vaciar mano): Suma total de los puntos del rival
+      for (const uid in handScores) {
+        if (String(uid) !== String(winnerId)) {
+          pointsWon += handScores[uid];
+        }
       }
     }
 
-    // Sumar al score global
+    const revealedHands = {};
+    for (const uid in this._hands) {
+      revealedHands[uid] = this._hands[uid];
+    }
+
     this.scores[winnerId] += pointsWon;
 
-    // Verificar si alcanzó la meta de su liga
     if (this.scores[winnerId] >= this.targetScore) {
       this.status = 'FINISHED';
       this.winner = winnerId;
       return {
         gameOver: true,
         winnerId: winnerId,
-        finalScores: this.scores // Enviamos los scores globales como finales
+        finalScores: this.scores,
+        roundWinner: winnerId,
+        pointsWon: pointsWon,
+        revealedHands: revealedHands,
+        isFinal: true,
+        isBlocked: isBlocked
       };
     } else {
       // La mano terminó, pero la partida continúa
@@ -235,7 +279,9 @@ class DominoGame extends BaseGame {
         roundOver: true,
         roundWinner: winnerId,
         pointsWon: pointsWon,
-        currentScores: this.scores
+        currentScores: this.scores,
+        revealedHands: revealedHands,
+        isBlocked: isBlocked
       };
     }
   }
@@ -315,6 +361,7 @@ class DominoGame extends BaseGame {
     this.turn = overrideStarter ?? this._resolveFirstPlayer();
     this._lastStarter = this.turn;
     this.status = 'PLAYING';
+    this.turnStartTime = Date.now();
   }
 
   /**
@@ -405,6 +452,9 @@ class DominoGame extends BaseGame {
       }
     } else if (actionType === 'draw_tile') {
       this._drawTile(userId);
+      // El turno sigue siendo del mismo jugador; reiniciamos el reloj para que
+      // tenga 30 segundos más antes de que el autoplay vuelva a actuar.
+      this.turnStartTime = Date.now();
       return { gameOver: false, roundOver: false, winnerId: null, finalScores: null };
     } else if (actionType === 'pass') {
       this._pass();
@@ -412,12 +462,86 @@ class DominoGame extends BaseGame {
       // Juego bloqueado: todos han pasado consecutivamente
       if (this.consecutivePasses >= this.playerOrder.length || this._isBlocked()) {
         const winner = this._resolveBlockedWinner();
-        return this._handleHandEnd(winner);
+        return this._handleHandEnd(winner, true);
       }
     }
 
     this._nextTurn();
     return { gameOver: false, roundOver: false, winnerId: null, finalScores: null };
+  }
+
+  /**
+   * Simula el autoplay sin modificar el estado del juego y devuelve la secuencia
+   * de acciones a ejecutar. El pozo real se copia para respetar el orden de robo.
+   *
+   * @returns {Array<{actionType: string, tile?: object, side?: string}>}
+   */
+  _planAutoPlay() {
+    const currentPlayerId = this.turn;
+    const simulatedHand  = [...(this._hands[currentPlayerId] ?? [])];
+    const simulatedStock = [...this._stock]; // copia: pop() desde el final igual que _drawTile
+    const plan = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const validMoves = [];
+      simulatedHand.forEach((tile) => {
+        const positions = this._getValidPositionsForTile(tile);
+        if (positions.length > 0) validMoves.push({ tile, position: positions[0] });
+      });
+
+      if (validMoves.length > 0) {
+        validMoves.sort((a, b) => (b.tile.a + b.tile.b) - (a.tile.a + a.tile.b));
+        const best = validMoves[0];
+        plan.push({ actionType: 'play_tile', tile: { a: best.tile.a, b: best.tile.b }, side: best.position });
+        break;
+      }
+
+      if (simulatedStock.length > 0) {
+        const drawn = simulatedStock.pop();
+        simulatedHand.push(drawn);
+        plan.push({ actionType: 'draw_tile' });
+        continue;
+      }
+
+      plan.push({ actionType: 'pass' });
+      break;
+    }
+
+    return plan;
+  }
+
+  /**
+   * Verifica si el turno actual excedió el tiempo límite.
+   * Devuelve el plan de acciones a ejecutar, o null si el tiempo no expiró.
+   *
+   * @returns {{ timedOutPlayerId: number, plan: Array } | null}
+   */
+  checkTimeouts() {
+    if (this.status !== 'PLAYING') return null;
+
+    if (Date.now() - this.turnStartTime >= this.turnDuration) {
+      return {
+        timedOutPlayerId: this.turn,
+        plan: this._planAutoPlay(),
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Resultado de abandono voluntario: gana el oponente y se usan
+   * los puntajes acumulados actuales para el resumen final.
+   *
+   * @param {number} forfeitingUserId
+   * @returns {{ winnerId: number|null, finalScores: Object.<number, number> }}
+   */
+  getForfeitResult(forfeitingUserId) {
+    const winnerId = this.playerOrder.find((uid) => String(uid) !== String(forfeitingUserId)) ?? null;
+    return {
+      winnerId,
+      finalScores: { ...this.scores },
+    };
   }
 
   /**
@@ -460,6 +584,7 @@ class DominoGame extends BaseGame {
       status:            this.status,
       winner:            this.winner,
       consecutivePasses: this.consecutivePasses,
+      turnEndsAt:        this.turnStartTime + this.turnDuration,
       scores:            this.scores,
       targetScore:       this.targetScore,
     };

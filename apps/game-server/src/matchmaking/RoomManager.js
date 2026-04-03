@@ -70,10 +70,47 @@ class RoomManager {
   }
 
   delete(roomId) {
-    const deleted = this._rooms.delete(roomId);
-    if (deleted) {
-      console.log(`[RoomManager] Sala eliminada: ${roomId}`);
+    const room = this._rooms.get(roomId);
+    if (room) {
+      // 1. Limpiar todos los timers asociados a la sala
+      room.cleanupTimers();
+      
+      // 2. Remover sala del mapa
+      this._rooms.delete(roomId);
+      
+      console.log(`[RoomManager] Sala ${roomId} eliminada y timers limpiados`);
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * Limpiar salas expiradas (ejemplo de implementación)
+   */
+  clearExpiredRooms() {
+    const now = Date.now();
+    const expired = [];
+    const MAX_ROOM_AGE = 24 * 60 * 60 * 1000; // 24 horas
+    
+    for (const [roomId, room] of this._rooms.entries()) {
+      // Salas en FINISHED por más de 30 minutos
+      if (room.status === 'FINISHED' && now - room.createdAt > 30 * 60 * 1000) {
+        expired.push(roomId);
+      }
+      // Salas WAITING por más de 24 horas
+      else if (room.status === 'WAITING' && now - room.createdAt > MAX_ROOM_AGE) {
+        expired.push(roomId);
+      }
+    }
+    
+    // Limpiar salas expiradas con limpieza de timers
+    expired.forEach(roomId => this.delete(roomId));
+    
+    if (expired.length > 0) {
+      console.log(`[RoomManager] ${expired.length} salas expiradas limpiadas`);
+    }
+    
+    return expired.length;
   }
 
   startGame(room) {

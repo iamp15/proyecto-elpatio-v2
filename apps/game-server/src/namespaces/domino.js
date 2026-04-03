@@ -7,6 +7,7 @@ const { handleGameOver } = require('../matchmaking/handleGameOver');
 const { enrichPlayersWithUsernames } = require('../matchmaking/enrichPlayers');
 const configManager = require('../config/ConfigManager');
 const { User } = require('@el-patio/database');
+const timerManager = require('../utils/TimerManager');
 
 /**
  * Registra el namespace /domino en la instancia de Socket.io.
@@ -18,6 +19,218 @@ function createDominoNamespace(io) {
   const queueStore = createDefaultQueueStore();
   const matchmakingQueue = new MatchmakingQueue(roomManager, nsp, queueStore);
   matchmakingQueue.start();
+
+  /**
+   * Propaga el resultado de una acción (autoplay o game_action) a todos los
+   * jugadores de la sala, gestionando fin de mano, fin de partida y turno normal.
+   */
+  async function _broadcastResult(room, result) {
+    if (result.gameOver === true) {
+      room.players.forEach((p) => {
+        p.socket?.emit('game_state', room.game.getState(p.userId));
+      });
+      nsp.to(room.roomId).emit('round_over', {
+        roundWinner:   result.roundWinner,
+        pointsWon:     result.pointsWon,
+        currentScores: result.finalScores,
+        revealedHands: result.revealedHands,
+        isFinal:       true,
+        isBlocked:     result.isBlocked,
+      });
+      await handleGameOver(room, result.winnerId, nsp, result.finalScores);
+      room.players.forEach((p) => {
+        p.socket.data.currentRoom = null;
+      });
+      roomManager.delete(room.roomId);
+
+    } else if (result.roundOver === true) {
+      room.players.forEach((p) => {
+        p.socket?.emit('game_state', room.game.getState(p.userId));
+      });
+      nsp.to(room.roomId).emit('round_over', {
+        roundWinner:   result.roundWinner,
+        pointsWon:     result.pointsWon,
+        currentScores: result.currentScores,
+        revealedHands: result.revealedHands,
+        isBlocked:     result.isBlocked,
+      });
+      setTimeout(() => {
+        if (room.status === 'FINISHED') return;
+        room.game.startNextRound();
+        room.players.forEach((p) => {
+          p.socket?.emit('game_state', room.game.getState(p.userId));
+        });
+      }, 7500);
+
+    } else {
+      room.players.forEach((p) => {
+        p.socket?.emit('game_state', room.game.getState(p.userId));
+      });
+    }
+  }
+
+  // ── Auto-Play por timeout: revisa todas las salas cada 500ms ───────────────
+  //
+  // Cuando expira el turno, _planAutoPlay() devuelve la secuencia de acciones
+  // (robos + acción final) SIN tocar el estado. Luego ejecutamos cada paso con
+  // un delay de AUTOPLAY_STEP_MS para que el cliente pueda mostrar las animaciones.
+  const AUTOPLAY_STEP_MS = 650;
+
+  setInterval(() => {
+    for (const room of roomManager._rooms.values()) {
+      if (room.status !== 'IN_GAME' || !room.game) continue;
+      if (room._autoPlayPending) continue; // secuencia en curso, no re-disparar
+
+      try {
+        // NO procesar autoplay si la sala está en estado suspendido
+        if (room.suspended) {
+          continue;
+        }
+        
+        // 1. Verificar timeouts normales (30s)
+        const timeout = room.game.checkTimeouts();
+        if (timeout) {
+          const { timedOutPlayerId, plan } = timeout;
+          console.log(
+            `[Domino] Auto-Play por timeout sala=${room.roomId} jugador=${timedOutPlayerId} pasos=${plan.length}`,
+          );
+
+          room._autoPlayPending = true;
+
+          plan.forEach((action, i) => {
+            const isLast = i === plan.length - 1;
+
+            setTimeout(async () => {
+              try {
+                // Guardia: la sala/partida puede haber terminado entre steps
+                if (!room.game || room.status !== 'IN_GAME') {
+                  room._autoPlayPending = false;
+                  return;
+                }
+                // Guardia: si el jugador ya actuó manualmente, cancelamos
+                if (room.game.turn !== timedOutPlayerId && !isLast) {
+                  room._autoPlayPending = false;
+                  return;
+                }
+
+                // Notificar al cliente para reproducir el sonido del paso
+                nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
+
+                const stepResult = room.game.handleAction(timedOutPlayerId, action);
+
+                if (isLast) {
+                  room._autoPlayPending = false;
+                  await _broadcastResult(room, stepResult);
+                } else {
+                  // Paso intermedio (robo): emitir estado actualizado a cada jugador
+                  room.players.forEach((p) => {
+                    p.socket?.emit('game_state', room.game.getState(p.userId));
+                  });
+                }
+              } catch (err) {
+                room._autoPlayPending = false;
+                console.error(`[Domino] Error en step ${i} autoplay (sala=${room.roomId}):`, err.message);
+              }
+            }, i * AUTOPLAY_STEP_MS);
+          });
+        }
+        
+        // 2. Verificar autoplay por desconexión (90s)
+        const currentTurn = room.game.turn;
+        if (currentTurn && room.autoplayEnabled.get(currentTurn) && !room.suspended) {
+          // Jugador desconectado con autoplay activado
+          console.log(`[Domino] Autoplay por desconexión sala=${room.roomId} jugador=${currentTurn}`);
+          
+          const plan = room.game._planAutoPlay();
+          if (plan.length > 0) {
+            room._autoPlayPending = true;
+
+            plan.forEach((action, i) => {
+              const isLast = i === plan.length - 1;
+
+              setTimeout(async () => {
+                try {
+                  // Guardia: la sala/partida puede haber terminado entre steps
+                  if (!room.game || room.status !== 'IN_GAME') {
+                    room._autoPlayPending = false;
+                    return;
+                  }
+                  // Guardia: si el jugador ya actuó manualmente, cancelamos
+                  if (room.game.turn !== currentTurn && !isLast) {
+                    room._autoPlayPending = false;
+                    return;
+                  }
+                  // Guardia: si el jugador ya se reconectó, cancelamos
+                  if (!room.autoplayEnabled.get(currentTurn)) {
+                    room._autoPlayPending = false;
+                    return;
+                  }
+
+                  // Notificar al cliente para reproducir el sonido del paso
+                  nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
+
+                  const stepResult = room.game.handleAction(currentTurn, action);
+
+                  if (isLast) {
+                    room._autoPlayPending = false;
+                    await _broadcastResult(room, stepResult);
+                  } else {
+                    // Paso intermedio (robo): emitir estado actualizado a cada jugador
+                    room.players.forEach((p) => {
+                      p.socket?.emit('game_state', room.game.getState(p.userId));
+                    });
+                  }
+                } catch (err) {
+                  room._autoPlayPending = false;
+                  console.error(`[Domino] Error en step ${i} autoplay por desconexión (sala=${room.roomId}):`, err.message);
+                }
+              }, i * AUTOPLAY_STEP_MS);
+            });
+          }
+        }
+
+        plan.forEach((action, i) => {
+          const isLast = i === plan.length - 1;
+
+          setTimeout(async () => {
+            try {
+              // Guardia: la sala/partida puede haber terminado entre steps
+              if (!room.game || room.status !== 'IN_GAME') {
+                room._autoPlayPending = false;
+                return;
+              }
+              // Guardia: si el jugador ya actuó manualmente, cancelamos
+              if (room.game.turn !== timedOutPlayerId && !isLast) {
+                room._autoPlayPending = false;
+                return;
+              }
+
+              // Notificar al cliente para reproducir el sonido del paso
+              nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
+
+              const stepResult = room.game.handleAction(timedOutPlayerId, action);
+
+              if (isLast) {
+                room._autoPlayPending = false;
+                await _broadcastResult(room, stepResult);
+              } else {
+                // Paso intermedio (robo): emitir estado actualizado a cada jugador
+                room.players.forEach((p) => {
+                  p.socket?.emit('game_state', room.game.getState(p.userId));
+                });
+              }
+            } catch (err) {
+              room._autoPlayPending = false;
+              console.error(`[Domino] Error en step ${i} autoplay (sala=${room.roomId}):`, err.message);
+            }
+          }, i * AUTOPLAY_STEP_MS);
+        });
+
+      } catch (err) {
+        console.error(`[Domino] Error en timeout check (sala=${room.roomId}):`, err.message);
+      }
+    }
+  }, 500);
 
   // ── Auth middleware ──────────────────────────────────────────────────────────
   nsp.use(authSocket);
@@ -136,6 +349,9 @@ function createDominoNamespace(io) {
         socket.join(roomId);
         socket.data.currentRoom = room;
 
+        // NUEVO: Limpiar estado de desconexión si el jugador estaba desconectado
+        room.handlePlayerReconnect(userId, socket);
+
         const enrichedPlayers = await enrichPlayersWithUsernames(room);
         socket.emit('game_rejoined', {
           roomId,
@@ -176,52 +392,7 @@ function createDominoNamespace(io) {
         }
 
         const result = room.game.handleAction(userId, { actionType, ...data });
-
-        if (result.gameOver === true) {
-          // Fin definitivo de la partida (Alguien alcanzó la meta de puntos)
-          // Emitimos el estado una última vez para que se vea la última jugada
-          room.players.forEach((p) => {
-            p.socket.emit('game_state', room.game.getState(p.userId));
-          });
-          await handleGameOver(room, result.winnerId, nsp, result.finalScores);
-
-          room.players.forEach((p) => {
-            p.socket.data.currentRoom = null;
-          });
-          roomManager.delete(room.roomId);
-
-        } else if (result.roundOver === true) {
-          // 1. Emitir el estado actual para que vean la última ficha que se jugó
-          room.players.forEach((p) => {
-            p.socket.emit('game_state', room.game.getState(p.userId));
-          });
-
-          // 2. Emitir evento de fin de mano para mostrar la animación de puntos
-          const roomId = room.roomId;
-          nsp.to(roomId).emit('round_over', {
-            roundWinner: result.roundWinner,
-            pointsWon: result.pointsWon,
-            currentScores: result.currentScores
-          });
-
-          // 3. Pausa de 5 segundos y luego iniciar la siguiente ronda automáticamente
-          setTimeout(() => {
-            if (room.status === 'FINISHED') return; // Prevención de bugs si alguien se desconectó
-
-            room.game.startNextRound();
-
-            // 4. Enviar el nuevo estado (tablero limpio, nueva mano)
-            room.players.forEach((p) => {
-              p.socket.emit('game_state', room.game.getState(p.userId));
-            });
-          }, 5000);
-
-        } else {
-          // Turno normal: actualizar el estado a todos los jugadores
-          room.players.forEach((p) => {
-            p.socket.emit('game_state', room.game.getState(p.userId));
-          });
-        }
+        await _broadcastResult(room, result);
 
       } catch (err) {
         console.error(`[Domino] Error en game_action (userId=${userId}):`, err.message);
@@ -269,6 +440,37 @@ function createDominoNamespace(io) {
       }
     });
 
+    // ── forfeit_game ───────────────────────────────────────────────────────────
+    socket.on('forfeit_game', async () => {
+      try {
+        const room = socket.data.currentRoom;
+
+        if (!room || room.status !== 'IN_GAME') {
+          return socket.emit('error', { message: 'No hay partida activa en tu sala.' });
+        }
+
+        if (!room.game?.getForfeitResult) {
+          return socket.emit('error', { message: 'El motor de juego no soporta abandono.' });
+        }
+
+        const { winnerId, finalScores } = room.game.getForfeitResult(userId);
+        if (!winnerId) {
+          return socket.emit('error', { message: 'No se pudo determinar el ganador por abandono.' });
+        }
+
+        await handleGameOver(room, winnerId, nsp, finalScores);
+
+        for (const player of room.players) {
+          player.socket.data.currentRoom = null;
+        }
+
+        roomManager.delete(room.roomId);
+      } catch (err) {
+        console.error(`[Domino] Error en forfeit_game (userId=${userId}):`, err.message);
+        socket.emit('error', { message: 'Error al procesar el abandono de partida.' });
+      }
+    });
+
     // ── disconnect ─────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       console.log(`[Domino] Desconectado: userId=${userId} (socket=${socket.id})`);
@@ -281,6 +483,7 @@ function createDominoNamespace(io) {
       const room = socket.data.currentRoom;
       if (room) {
         if (room.status === 'WAITING') {
+          // Lógica existente para salas en espera
           room.removePlayer(userId);
           if (room.players.length === 0) {
             roomManager.delete(room.roomId);
@@ -297,11 +500,45 @@ function createDominoNamespace(io) {
               needed:     room.config.maxPlayers - room.players.length,
             });
           }
+        } else if (room.status === 'IN_GAME') {
+          // NUEVA LÓGICA: Manejar desconexión durante partida
+          room.handlePlayerDisconnect(userId);
         }
+        
         socket.data.currentRoom = null;
       }
     });
   });
+
+  // Health check adicional específico para salas de dominó
+  setInterval(() => {
+    // Verificar integridad del TimerManager
+    const integrity = timerManager.checkIntegrity();
+    
+    if (integrity.orphanedTimers.length > 0) {
+      console.warn(`[Domino Timer Health] ${integrity.orphanedTimers.length} timers huérfanos detectados`);
+    }
+    
+    // Log detallado solo si hay actividad
+    if (integrity.activeTimers > 0) {
+      console.log(`[Domino Timer Health] Estado: ${integrity.activeTimers} timers, ${integrity.activeRooms} salas`);
+    }
+    
+    // Verificar salas suspendidas
+    const suspendedRooms = [];
+    for (const room of roomManager._rooms.values()) {
+      if (room.suspended) {
+        suspendedRooms.push({
+          roomId: room.roomId,
+          suspendedSince: room.allDisconnectedSince
+        });
+      }
+    }
+    
+    if (suspendedRooms.length > 0) {
+      console.log(`[Domino Timer Health] ${suspendedRooms.length} salas en estado suspendido`);
+    }
+  }, 60000); // Cada minuto
 
   return nsp;
 }

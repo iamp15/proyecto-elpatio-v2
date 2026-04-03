@@ -198,10 +198,11 @@ export default function PlayerHand({
           alignItems:    'center',
           gap:           tileSize <= 30 ? '6px' : '8px',
           minWidth:      '100%',
-          padding:       '0 16px',
+          paddingLeft:   '16px',
+          paddingRight:  '16px',
         }}>
           {/* Espaciador izquierdo: empuja las fichas al centro si hay espacio */}
-          <div style={{ margin: 'auto' }} />
+          <div style={{ marginRight: 'auto' }} />
 
           <AnimatePresence>
             {hand.map((tile, i) => {
@@ -231,8 +232,14 @@ export default function PlayerHand({
             })}
           </AnimatePresence>
 
-          {/* Espaciador derecho: mantiene el equilibrio */}
-          <div style={{ margin: 'auto' }} />
+          {/* Espaciador derecho: Bloque físico incompresible para forzar el margen final en el scroll */}
+          <div style={{
+            marginLeft: 'auto',
+            minWidth: '32px', // Este es el espacio real que quedará al final
+            width: '32px',
+            flexShrink: 0,
+            height: '1px', // Forzamos al navegador a renderizarlo como un objeto físico
+          }} />
         </div>
       </div>
 

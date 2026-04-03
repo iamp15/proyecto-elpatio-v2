@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { AudioSettingsProvider } from './context/AudioSettingsContext';
 import { expandWebApp } from './lib/telegram';
 import MainLayout from './components/layout/MainLayout';
 import Juegos from './pages/Juegos/Juegos';
@@ -17,6 +18,7 @@ export default function App() {
   }, []);
 
   return (
+    <AudioSettingsProvider>
     <AuthProvider>
       <BrowserRouter
         future={{
@@ -37,5 +39,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </AudioSettingsProvider>
   );
 }
