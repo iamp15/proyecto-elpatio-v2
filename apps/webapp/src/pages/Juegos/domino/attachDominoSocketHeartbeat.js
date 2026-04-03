@@ -1,6 +1,5 @@
 /**
- * Responde al ping de aplicación del game-server para evitar cierre por heartbeat.
- * Idempotente por instancia de socket.
+ * Responde al ping de aplicación del game-server.
  * @param {import('socket.io-client').Socket} socket
  */
 export function attachDominoSocketHeartbeat(socket) {

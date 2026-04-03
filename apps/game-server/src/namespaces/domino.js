@@ -190,6 +190,43 @@ function createDominoNamespace(io) {
           }
         }
 
+        plan.forEach((action, i) => {
+          const isLast = i === plan.length - 1;
+
+          setTimeout(async () => {
+            try {
+              // Guardia: la sala/partida puede haber terminado entre steps
+              if (!room.game || room.status !== 'IN_GAME') {
+                room._autoPlayPending = false;
+                return;
+              }
+              // Guardia: si el jugador ya actuó manualmente, cancelamos
+              if (room.game.turn !== timedOutPlayerId && !isLast) {
+                room._autoPlayPending = false;
+                return;
+              }
+
+              // Notificar al cliente para reproducir el sonido del paso
+              nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
+
+              const stepResult = room.game.handleAction(timedOutPlayerId, action);
+
+              if (isLast) {
+                room._autoPlayPending = false;
+                await _broadcastResult(room, stepResult);
+              } else {
+                // Paso intermedio (robo): emitir estado actualizado a cada jugador
+                room.players.forEach((p) => {
+                  p.socket?.emit('game_state', room.game.getState(p.userId));
+                });
+              }
+            } catch (err) {
+              room._autoPlayPending = false;
+              console.error(`[Domino] Error en step ${i} autoplay (sala=${room.roomId}):`, err.message);
+            }
+          }, i * AUTOPLAY_STEP_MS);
+        });
+
       } catch (err) {
         console.error(`[Domino] Error en timeout check (sala=${room.roomId}):`, err.message);
       }
@@ -207,11 +244,12 @@ function createDominoNamespace(io) {
 
     console.log(`[Domino] Conectado: userId=${userId} (socket=${socket.id})`);
 
-    // Handshake async sin bloquear el registro de listeners (evita carrera con join_queue).
+    // Handshake async: reconnect_game antes de init_lobby_config (evita que el cliente cierre
+    // tras init sin haber recibido reconexión). No enlazar socket a la sala aquí.
     void (async () => {
       try {
         const room = roomManager.findActiveGameRoomForUser(userId);
-        if (room?.game && room.players.some((p) => p.userId === userId)) {
+        if (room?.game && room.players.some((p) => Number(p.userId) === Number(userId))) {
           const enrichedPlayers = await enrichPlayersWithUsernames(room);
           socket.emit('reconnect_game', {
             roomId: room.roomId,
@@ -320,7 +358,7 @@ function createDominoNamespace(io) {
           });
         }
 
-        const player = room.players.find((p) => p.userId === userId);
+        const player = room.players.find((p) => Number(p.userId) === Number(userId));
         if (!player) {
           return socket.emit('rejoin_error', {
             message: 'No perteneces a esta sala.',

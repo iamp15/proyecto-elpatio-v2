@@ -487,6 +487,13 @@ export default function LobbyDomino() {
     viewRef.current = view;
   }, [view]);
 
+  const navigateRef = useRef(navigate);
+  const updateUserRef = useRef(updateUser);
+  const tRef = useRef(t);
+  navigateRef.current = navigate;
+  updateUserRef.current = updateUser;
+  tRef.current = t;
+
   // Fuerza fondo oscuro mientras el lobby está montado
   useEffect(() => {
     const prev = document.body.style.getPropertyValue('--color-bg');
@@ -510,11 +517,15 @@ export default function LobbyDomino() {
     return () => stopLobbyMusic();
   }, [audioSettings.masterMute, audioSettings.musicMute, playLobbyMusic, stopLobbyMusic]);
 
-  // Matchmaking sobre el socket global (DominoSocketProvider)
-  useEffect(() => {
-    if (!socket || view !== 'IN_QUEUE' || !activeCategory) return undefined;
+  // Matchmaking sobre el socket global (DominoSocketProvider).
+  // No incluir `t`, `navigate`, `updateUser` en deps: suelen cambiar de referencia y el cleanup
+  // dispararía leave_queue en bucle, vaciando la cola antes de que el tick empareje.
+  const queueCategoryId = view === 'IN_QUEUE' && activeCategory ? activeCategory.categoryId : null;
 
-    const categoryId = activeCategory.categoryId;
+  useEffect(() => {
+    if (!socket || view !== 'IN_QUEUE' || !queueCategoryId) return undefined;
+
+    const categoryId = queueCategoryId;
     const allowLower = allowLowerLeague;
 
     const emitJoin = () => {
@@ -522,15 +533,15 @@ export default function LobbyDomino() {
     };
 
     const onGameStart = (payload) => {
-      navigate(`/juegos/domino/${payload.roomId}`, { state: { fromMatchmaking: true } });
+      navigateRef.current(`/juegos/domino/${payload.roomId}`, { state: { fromMatchmaking: true } });
     };
 
     const onPrUpdated = ({ pr, rank }) => {
-      updateUser({ pr, rank });
+      updateUserRef.current({ pr, rank });
     };
 
     const onPrOutOfRange = (payload) => {
-      setError(payload.message ?? t('lobby.errorPrOutOfRange'));
+      setError(payload.message ?? tRef.current('lobby.errorPrOutOfRange'));
       setView('SELECT_MODE');
       setActiveCategory(null);
     };
@@ -546,13 +557,13 @@ export default function LobbyDomino() {
     };
 
     const onQueueReset = (payload) => {
-      setError(payload.message ?? t('lobby.errorQueueReset'));
+      setError(payload.message ?? tRef.current('lobby.errorQueueReset'));
       setView('SELECT_MODE');
       setActiveCategory(null);
     };
 
     const onServerError = (payload) => {
-      setError(payload.message ?? t('lobby.errorServer'));
+      setError(payload.message ?? tRef.current('lobby.errorServer'));
       setView('SELECT_MODE');
       setActiveCategory(null);
     };
@@ -585,7 +596,7 @@ export default function LobbyDomino() {
       socket.off('disconnect', onDisconnectWhileQueue);
       socket.emit('leave_queue');
     };
-  }, [socket, view, activeCategory, allowLowerLeague, navigate, updateUser, t]);
+  }, [socket, view, queueCategoryId, allowLowerLeague]);
 
   function handlePlayCategory(cat) {
     setError('');

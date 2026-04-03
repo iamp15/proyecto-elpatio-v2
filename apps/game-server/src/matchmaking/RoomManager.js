@@ -75,9 +75,11 @@ class RoomManager {
    * @returns {import('./Room').Room|null}
    */
   findActiveGameRoomForUser(userId) {
+    const uid = Number(userId);
+    if (Number.isNaN(uid)) return null;
     for (const room of this._rooms.values()) {
       if (room.status !== 'IN_GAME' || !room.game) continue;
-      if (room.players.some((p) => p.userId === userId)) {
+      if (room.players.some((p) => Number(p.userId) === uid)) {
         return room;
       }
     }

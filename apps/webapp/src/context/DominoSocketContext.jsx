@@ -16,8 +16,7 @@ const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhos
 const DominoSocketContext = createContext(null);
 
 /**
- * Una sola conexión Socket.io al namespace /domino por sesión autenticada.
- * Mantiene categorías del lobby (init_lobby_config) y navegación por reconnect_game.
+ * Una sola conexión a /domino: lobby, cola, reconexión a partida y mesa comparten el mismo socket.
  */
 export function DominoSocketProvider({ children }) {
   const { token } = useAuth();
@@ -25,7 +24,6 @@ export function DominoSocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
-  /** null = aún no llegó init_lobby_config */
   const [lobbyServerCategories, setLobbyServerCategories] = useState(null);
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
