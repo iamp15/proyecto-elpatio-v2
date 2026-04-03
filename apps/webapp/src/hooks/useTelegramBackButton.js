@@ -9,6 +9,13 @@ import {
 
 const MAIN_ROUTES = new Set(['/', '/wallet', '/settings']);
 
+const DOMINO_LOBBY_PATH = '/lobby-domino';
+
+/** Partida de dominó en curso (misma regla que MainLayout `isGameRoute`). */
+function isDominoGameBoardPath(pathname) {
+  return /^\/juegos\/domino\/[^/]+$/.test(pathname);
+}
+
 export default function useTelegramBackButton() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,8 +26,12 @@ export default function useTelegramBackButton() {
 
   useEffect(() => {
     const isMainRoute = MAIN_ROUTES.has(location.pathname);
+    const hideBack =
+      isMainRoute ||
+      location.pathname === DOMINO_LOBBY_PATH ||
+      isDominoGameBoardPath(location.pathname);
 
-    if (isMainRoute) {
+    if (hideBack) {
       hideBackButton();
       offBackButtonClick(handleBack);
     } else {
