@@ -19,6 +19,9 @@
     "cancel": "Cancel",
     "errorPrOutOfRange": "Your RP is not within this category's range.",
     "errorInsufficientBalance": "Insufficient balance.",
+    "rechargeStonesHint": "Top up stones in the shop to keep competing.",
+    "balanceLoadingShort": "Loading balance…",
+    "balanceUnavailableShort": "Could not verify balance. Please try again.",
     "errorQueueReset": "The match was cancelled. Trying again…",
     "errorServer": "Server error."
   },

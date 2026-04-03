@@ -11,7 +11,10 @@ router.get('/', authMiddleware, async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    res.json({ piedras: user.piedras_display ?? Math.floor(user.balance_subunits / 100) });
+    res.json({
+      balance_subunits: user.balance_subunits,
+      piedras:          user.piedras_display ?? Math.floor(user.balance_subunits / 100),
+    });
   } catch (e) {
     next(e);
   }

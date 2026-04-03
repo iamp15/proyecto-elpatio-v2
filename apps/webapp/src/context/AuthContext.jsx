@@ -71,6 +71,8 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(stored.token);
   const [user, setUser] = useState(stored.user);
   const [balance, setBalance] = useState(null);
+  /** Saldo en subunidades (misma unidad que entryFee_subunits del game-server). null = aún no cargado. */
+  const [balanceSubunits, setBalanceSubunits] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [authLoading, setAuthLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -85,6 +87,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setBalance(null);
+    setBalanceSubunits(null);
     setBalanceError(null);
     setTransactions([]);
     setTransactionsError(null);
@@ -148,6 +151,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setBalance(null);
+    setBalanceSubunits(null);
     setBalanceError(null);
     setTransactions([]);
     setTransactionsError(null);
@@ -161,9 +165,13 @@ export function AuthProvider({ children }) {
     try {
       const data = await fetchBalance(api.request);
       setBalance(data.piedras ?? null);
+      setBalanceSubunits(
+        typeof data.balance_subunits === 'number' ? data.balance_subunits : null,
+      );
     } catch (e) {
       setBalanceError(e?.body?.error || e?.message || 'Error al cargar balance');
       setBalance(null);
+      setBalanceSubunits(null);
     } finally {
       setBalanceLoading(false);
     }
@@ -179,6 +187,9 @@ export function AuthProvider({ children }) {
         fetchWalletHistory(api.request),
       ]);
       setBalance(balanceData.piedras ?? null);
+      setBalanceSubunits(
+        typeof balanceData.balance_subunits === 'number' ? balanceData.balance_subunits : null,
+      );
       setTransactions(historyData.transactions ?? []);
     } catch (e) {
       setTransactionsError(e?.body?.error || e?.message || 'Error al cargar la billetera');
@@ -275,6 +286,7 @@ export function AuthProvider({ children }) {
       updateUser,
       refreshUser,
       balance,
+      balanceSubunits,
       refreshBalance,
       refreshWallet,
       transactions,
@@ -287,7 +299,7 @@ export function AuthProvider({ children }) {
     [
       user, token, isAuthenticated, isSyncingProfile,
       login, logout, updateUser, refreshUser,
-      balance, refreshBalance, refreshWallet, transactions,
+      balance, balanceSubunits, refreshBalance, refreshWallet, transactions,
       authLoading, balanceLoading, balanceError,
       transactionsLoading, transactionsError,
     ]

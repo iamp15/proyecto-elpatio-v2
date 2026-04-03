@@ -19,6 +19,9 @@
     "cancel": "Cancelar",
     "errorPrOutOfRange": "Tu PR no está dentro del rango de esta categoría.",
     "errorInsufficientBalance": "Saldo insuficiente.",
+    "rechargeStonesHint": "Recarga piedras en la tienda para seguir compitiendo.",
+    "balanceLoadingShort": "Cargando saldo…",
+    "balanceUnavailableShort": "No se pudo verificar el saldo. Inténtalo de nuevo.",
     "errorQueueReset": "La partida fue cancelada. Intentando de nuevo…",
     "errorServer": "Error en el servidor."
   },
