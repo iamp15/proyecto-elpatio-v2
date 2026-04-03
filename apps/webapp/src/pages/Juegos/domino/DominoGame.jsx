@@ -163,12 +163,7 @@ export default function DominoGame({
       {myPlayer && (
         <div style={{ position: 'absolute', bottom: '148px', left: '16px', zIndex: 40, pointerEvents: 'none' }}>
           {onSendChat && (
-            <PlayerChatControls
-              onSendChat={(type, content) => {
-                sounds.playChatPop();
-                onSendChat?.(type, content);
-              }}
-            />
+            <PlayerChatControls onSendChat={(type, content) => onSendChat?.(type, content)} />
           )}
           <ChatBubble bubble={chatBubbles[myUserId]} isOpponent={false} />
           <div style={{ pointerEvents: 'auto' }}>
