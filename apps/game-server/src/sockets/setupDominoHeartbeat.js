@@ -1,13 +1,20 @@
 /**
- * Heartbeat aplicación (ping/pong) sobre Socket.io.
- * Si el cliente no responde con client_pong tras server_ping, se fuerza disconnect
- * para disparar la misma lógica que un cierre limpio (desconexión en Room, etc.).
+ * Capa de transporte / salud de conexión (no lógica de juego).
+ *
+ * Ubicación: `apps/game-server/src/sockets/` — junto a utilidades del ciclo de vida
+ * del socket, separado de `namespaces/` (eventos de dominó) y `matchmaking/`.
+ *
+ * Consumidor principal: `src/namespaces/domino.js` (tras auth, una vez por conexión).
+ *
+ * Si el despliegue falla con MODULE_NOT_FOUND, el archivo no está en la imagen:
+ * suele faltar commitear/pushear este path o desplegar una rama sin el commit.
  */
 
 const PING_INTERVAL_MS = Number(process.env.DOMINO_HEARTBEAT_INTERVAL_MS) || 20000;
 const PONG_WAIT_MS = Number(process.env.DOMINO_HEARTBEAT_PONG_WAIT_MS) || 15000;
 
 /**
+ * Ping/pong a nivel aplicación. Sin pong → disconnect → misma rama que cierre real.
  * @param {import('socket.io').Socket} socket
  */
 function setupDominoHeartbeat(socket) {
