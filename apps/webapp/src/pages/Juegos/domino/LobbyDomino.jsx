@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
 import useGameSounds from './hooks/useGameSounds';
+import InsufficientBalanceModal from './components/InsufficientBalanceModal';
 import './domino.css';
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
@@ -51,13 +52,6 @@ function isCategoryUnlocked(userRank, categoryId) {
  * @param {object[]} serverCategories - Array recibido en init_lobby_config
  * @returns {object[]} Categorías listas para renderizar
  */
-/** Mensaje de saldo insuficiente + indicación de tienda (servidor y cliente). */
-function formatInsufficientBalanceMessage(t, serverMessage) {
-  const hint = t('lobby.rechargeStonesHint');
-  const base = (serverMessage && String(serverMessage).trim()) || t('lobby.errorInsufficientBalance');
-  return `${base}\n\n${hint}`;
-}
-
 function mergeWithVisuals(serverCategories) {
   return serverCategories.map((cat) => {
     const visual = RANK_VISUAL[cat.categoryId] ?? {};
@@ -308,17 +302,17 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
  * Si isActiveRank, aplica resplandor pulsante, shimmer y badge "ESTÁS AQUÍ".
  * isComingSoon: desbloqueada por rango pero matchmaking no disponible (ej. ORO/DIAMANTE).
  * rankMatchReady: rango y modo 2 jugadores OK (sin candado de liga).
- * playEnabled: puede iniciar matchmaking (saldo listo y suficiente).
- * saldoBloqueo: si hay liga OK pero no se puede jugar por saldo/carga (texto del botón).
+ * playDisabled: no se puede pulsar Jugar (liga bloqueada, próximamente o saldo sin cargar).
+ * playDisabledReason: motivo para texto/aria cuando playDisabled (no incluye saldo insuficiente: ahí se abre modal).
  */
 function CategoryCard({
   cat,
   rankMatchReady,
-  playEnabled,
-  saldoBloqueo,
+  playDisabled,
+  playDisabledReason,
   isComingSoon,
   index,
-  onSelect,
+  onPlayRequest,
   isActiveRank,
   onPlayButton,
   t,
@@ -417,42 +411,41 @@ function CategoryCard({
       <motion.button
         className="lobby-card-play-btn"
         onClick={() => {
-          if (playEnabled) {
-            onPlayButton?.();
-            onSelect(cat);
-          }
+          if (playDisabled) return;
+          onPlayButton?.();
+          onPlayRequest(cat);
         }}
-        disabled={!playEnabled}
-        whileTap={playEnabled ? {
+        disabled={playDisabled}
+        whileTap={!playDisabled ? {
           scale: 0.94,
           boxShadow: `0 0 0 3px ${cat.colorA}, 0 0 20px ${cat.colorA}55`,
           transition: { duration: 0.1 },
         } : {}}
         aria-label={
-          playEnabled
+          !playDisabled
             ? t('lobby.playCategory', { category: t('ranks.' + (cat.categoryId || 'bronce').toLowerCase()) })
             : isComingSoon
               ? t('lobby.comingSoon')
               : !rankMatchReady
                 ? t('lobby.locked')
-                : saldoBloqueo === 'loading'
+                : playDisabledReason === 'balance_loading'
                   ? t('lobby.balanceLoadingShort')
-                  : saldoBloqueo === 'unavailable'
+                  : playDisabledReason === 'balance_unavailable'
                     ? t('lobby.balanceUnavailableShort')
-                    : t('lobby.errorInsufficientBalance')
+                    : t('lobby.locked')
         }
       >
-        {playEnabled
+        {!playDisabled
           ? t('lobby.play')
           : isComingSoon
             ? t('lobby.comingSoon')
             : !rankMatchReady
               ? t('lobby.locked')
-              : saldoBloqueo === 'loading'
+              : playDisabledReason === 'balance_loading'
                 ? t('lobby.balanceLoadingShort')
-                : saldoBloqueo === 'unavailable'
+                : playDisabledReason === 'balance_unavailable'
                   ? t('lobby.balanceUnavailableShort')
-                  : t('lobby.errorInsufficientBalance')}
+                  : t('lobby.locked')}
       </motion.button>
     </motion.div>
   );
@@ -483,6 +476,10 @@ export default function LobbyDomino() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [allowLowerLeague, setAllowLowerLeague] = useState(false);
   const [error,          setError]          = useState('');
+  const [insufficientBalanceModal, setInsufficientBalanceModal] = useState({
+    open: false,
+    serverMessage: null,
+  });
   const socketRef    = useRef(null);
   const configLoaded = useRef(false);
 
@@ -585,8 +582,13 @@ export default function LobbyDomino() {
     });
 
     socket.on('insufficient_balance', (payload) => {
-      setError(formatInsufficientBalanceMessage(t, payload?.message));
+      setInsufficientBalanceModal({
+        open: true,
+        serverMessage: payload?.message ?? null,
+      });
       setView('SELECT_MODE');
+      setActiveCategory(null);
+      setError('');
       socket.disconnect();
       socketRef.current = null;
     });
@@ -612,7 +614,7 @@ export default function LobbyDomino() {
     });
   }, [token, navigate, view, updateUser, t]);
 
-  function handleSelectCategory(cat) {
+  function handlePlayCategory(cat) {
     setError('');
     if (balanceLoading) {
       setError(t('lobby.balanceLoadingShort'));
@@ -628,7 +630,7 @@ export default function LobbyDomino() {
     }
     const fee = cat.entryFee_subunits ?? 0;
     if (fee > 0 && balanceSubunits < fee) {
-      setError(formatInsufficientBalanceMessage(t, null));
+      setInsufficientBalanceModal({ open: true, serverMessage: null });
       return;
     }
     setActiveCategory(cat);
@@ -659,6 +661,13 @@ export default function LobbyDomino() {
         categories={categories}
         isSyncing={isSyncingProfile}
         t={t}
+      />
+
+      <InsufficientBalanceModal
+        open={insufficientBalanceModal.open}
+        serverMessage={insufficientBalanceModal.serverMessage}
+        onClose={() => setInsufficientBalanceModal({ open: false, serverMessage: null })}
+        onGoToStore={() => {}}
       />
 
       {/* ── Toast de error ─────────────────────────────────────────────── */}
@@ -715,18 +724,23 @@ export default function LobbyDomino() {
                   const rankUnlocked = isCategoryUnlocked(userRank, cat.categoryId);
                   const rankMatchReady = rankUnlocked && cat.maxPlayers === 2;
                   const isComingSoon = rankUnlocked && cat.maxPlayers !== 2;
-                  const fee = cat.entryFee_subunits ?? 0;
                   const saldoListo = !balanceLoading && balanceSubunits !== null;
-                  const saldoSuficiente = fee <= 0 || (saldoListo && balanceSubunits >= fee);
-                  const playEnabled = rankMatchReady && saldoListo && saldoSuficiente;
-                  let saldoBloqueo = null;
-                  if (rankMatchReady && !isComingSoon) {
-                    if (balanceLoading) saldoBloqueo = 'loading';
-                    else if (balanceSubunits === null) {
-                      saldoBloqueo = balanceError ? 'unavailable' : 'loading';
-                    } else if (fee > 0 && balanceSubunits < fee) {
-                      saldoBloqueo = 'insufficient';
-                    }
+                  let playDisabled = true;
+                  let playDisabledReason = null;
+                  if (isComingSoon) {
+                    playDisabled = true;
+                    playDisabledReason = null;
+                  } else if (!rankMatchReady) {
+                    playDisabled = true;
+                    playDisabledReason = null;
+                  } else if (balanceLoading) {
+                    playDisabled = true;
+                    playDisabledReason = 'balance_loading';
+                  } else if (balanceSubunits === null) {
+                    playDisabled = true;
+                    playDisabledReason = balanceError ? 'balance_unavailable' : 'balance_loading';
+                  } else {
+                    playDisabled = false;
                   }
                   const isActiveRank = cat.categoryId === userRank;
                   return (
@@ -734,11 +748,11 @@ export default function LobbyDomino() {
                       key={cat.categoryId}
                       cat={cat}
                       rankMatchReady={rankMatchReady}
-                      playEnabled={playEnabled}
-                      saldoBloqueo={saldoBloqueo}
+                      playDisabled={playDisabled}
+                      playDisabledReason={playDisabledReason}
                       isComingSoon={isComingSoon}
                       index={i}
-                      onSelect={handleSelectCategory}
+                      onPlayRequest={handlePlayCategory}
                       onPlayButton={playButton}
                       isActiveRank={isActiveRank}
                       t={t}
