@@ -70,9 +70,9 @@ class RoomManager {
   }
 
   /**
-   * Sala con partida en curso donde participa el usuario (reconexión / handshake).
-   * @param {string} userId
-   * @returns {import('./Room').Room|null}
+   * Partida en curso donde participa el usuario (handshake reconnect_game).
+   * @param {string|number} userId
+   * @returns {Room|null}
    */
   findActiveGameRoomForUser(userId) {
     const uid = Number(userId);

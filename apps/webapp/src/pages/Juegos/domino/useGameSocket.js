@@ -2,7 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useDominoSocket } from '../../../context/DominoSocketContext';
 
 /**
- * Suscripción al socket compartido para la mesa activa (rejoin_room + eventos de partida).
+ * Suscripción al socket compartido (DominoSocketProvider) para la mesa activa.
+ * No crea ni destruye la conexión; registra listeners y emite rejoin_room.
  */
 export function useGameSocket({
   roomId,

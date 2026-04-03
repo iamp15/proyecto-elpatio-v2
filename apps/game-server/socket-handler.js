@@ -91,7 +91,7 @@ const server = http.createServer(async (req, res) => {
 
 const io = new Server(server, {
   cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
-  // Ping a nivel motor: refuerza detección cuando el SO no cierra el TCP al matar la app
+  // Refuerzo junto al heartbeat de aplicación (setupDominoHeartbeat en /domino)
   pingInterval: 10000,
   pingTimeout: 25000,
 });
