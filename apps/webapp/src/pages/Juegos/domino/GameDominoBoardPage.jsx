@@ -30,7 +30,7 @@ export default function GameDominoBoardPage() {
   const { t } = useTranslation();
   const { roomId }  = useParams();
   const location    = useLocation();
-  const { token, user, refreshBalance, updateUser } = useAuth();
+  const { user, refreshBalance, updateUser } = useAuth();
   const navigate     = useNavigate();
 
   const sounds = useGameSounds();
@@ -239,7 +239,6 @@ export default function GameDominoBoardPage() {
   }, [sounds]);
 
   const { connected, reconnecting, sendAction, sendForfeit, sendChat } = useGameSocket({
-    token,
     roomId,
     onRejoined:       handleRejoined,
     onGameState:      handleGameState,

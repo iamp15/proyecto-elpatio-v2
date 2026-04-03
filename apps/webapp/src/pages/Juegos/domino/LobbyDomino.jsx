@@ -1,18 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap } from 'lucide-react';
-import { io } from 'socket.io-client';
 import { useAuth } from '../../../context/AuthContext';
+import { useDominoSocket } from '../../../context/DominoSocketContext';
 import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
 import useGameSounds from './hooks/useGameSounds';
-import { attachDominoSocketHeartbeat } from './attachDominoSocketHeartbeat';
 import InsufficientBalanceModal from './components/InsufficientBalanceModal';
 import './domino.css';
-
-const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
 /**
  * Constantes visuales por rango (puramente de UI: colores y emoji).
  * La fuente de verdad para minPR, maxPR, entryFee, etc. viene del servidor
@@ -465,6 +462,7 @@ export default function LobbyDomino() {
     updateUser,
     isSyncingProfile,
   } = useAuth();
+  const { socket, lobbyServerCategories } = useDominoSocket();
   const navigate = useNavigate();
   const { playButton, playLobbyMusic, stopLobbyMusic } = useGameSounds();
   const { settings: audioSettings } = useAudioSettings();
@@ -472,7 +470,10 @@ export default function LobbyDomino() {
   const userPR   = user?.pr   ?? 1000;
   const userRank = user?.rank ?? 'BRONCE';
 
-  const [categories,     setCategories]     = useState([]);    // cargado desde el servidor
+  const categories = useMemo(
+    () => mergeWithVisuals(lobbyServerCategories ?? []),
+    [lobbyServerCategories],
+  );
   const [view,           setView]           = useState('SELECT_MODE');
   const [activeCategory, setActiveCategory] = useState(null);
   const [allowLowerLeague, setAllowLowerLeague] = useState(false);
@@ -481,8 +482,10 @@ export default function LobbyDomino() {
     open: false,
     serverMessage: null,
   });
-  const socketRef    = useRef(null);
-  const configLoaded = useRef(false);
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   // Fuerza fondo oscuro mientras el lobby está montado
   useEffect(() => {
@@ -507,102 +510,32 @@ export default function LobbyDomino() {
     return () => stopLobbyMusic();
   }, [audioSettings.masterMute, audioSettings.musicMute, playLobbyMusic, stopLobbyMusic]);
 
-  // Conexión de configuración: carga init_lobby_config al montar
+  // Matchmaking sobre el socket global (DominoSocketProvider)
   useEffect(() => {
-    if (!token || configLoaded.current) return;
+    if (!socket || view !== 'IN_QUEUE' || !activeCategory) return undefined;
 
-    const configSocket = io(`${GAME_SERVER_URL}/domino`, {
-      auth:       { token },
-      transports: ['websocket'],
-    });
+    const categoryId = activeCategory.categoryId;
+    const allowLower = allowLowerLeague;
 
-    attachDominoSocketHeartbeat(configSocket);
-
-    configSocket.on('reconnect_game', (payload) => {
-      const id = payload?.roomId;
-      if (!id) return;
-      navigate(`/juegos/domino/${id}`, { replace: true, state: { fromReconnect: true } });
-      configLoaded.current = true;
-      configSocket.disconnect();
-    });
-
-    configSocket.once('init_lobby_config', ({ categories: serverCats }) => {
-      setCategories(mergeWithVisuals(serverCats));
-      configLoaded.current = true;
-      configSocket.disconnect();
-    });
-
-    configSocket.on('connect_error', () => {
-      configSocket.disconnect();
-    });
-
-    return () => {
-      configSocket.disconnect();
-    };
-  }, [token, navigate]);
-
-  // Limpiar socket de matchmaking al desmontar
-  useEffect(() => {
-    return () => {
-      socketRef.current?.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
-
-  const connectAndJoin = useCallback((categoryId, allowLower = false) => {
-    if (!token) return;
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
-
-    const socket = io(`${GAME_SERVER_URL}/domino`, {
-      auth:       { token },
-      transports: ['websocket'],
-    });
-
-    socketRef.current = socket;
-    attachDominoSocketHeartbeat(socket);
-
-    socket.on('reconnect_game', (payload) => {
-      const id = payload?.roomId;
-      if (!id) return;
-      socket.disconnect();
-      socketRef.current = null;
-      setView('SELECT_MODE');
-      navigate(`/juegos/domino/${id}`, { replace: true, state: { fromReconnect: true } });
-    });
-
-    socket.on('connect', () => {
+    const emitJoin = () => {
       socket.emit('join_queue', { categoryId, allowLowerLeague: allowLower });
-    });
+    };
 
-    // Actualizar la config si el servidor la reenvía (reconexión, etc.)
-    socket.on('init_lobby_config', ({ categories: serverCats }) => {
-      setCategories(mergeWithVisuals(serverCats));
-    });
-
-    socket.on('match_found', () => {
-      // Partida encontrada, game_start llegará a continuación
-    });
-
-    socket.on('game_start', (payload) => {
-      socket.disconnect();
-      socketRef.current = null;
+    const onGameStart = (payload) => {
       navigate(`/juegos/domino/${payload.roomId}`, { state: { fromMatchmaking: true } });
-    });
+    };
 
-    socket.on('pr_updated', ({ pr, rank }) => {
+    const onPrUpdated = ({ pr, rank }) => {
       updateUser({ pr, rank });
-    });
+    };
 
-    socket.on('pr_out_of_range', (payload) => {
+    const onPrOutOfRange = (payload) => {
       setError(payload.message ?? t('lobby.errorPrOutOfRange'));
       setView('SELECT_MODE');
-      socket.disconnect();
-      socketRef.current = null;
-    });
+      setActiveCategory(null);
+    };
 
-    socket.on('insufficient_balance', (payload) => {
+    const onInsufficientBalance = (payload) => {
       setInsufficientBalanceModal({
         open: true,
         serverMessage: payload?.message ?? null,
@@ -610,33 +543,53 @@ export default function LobbyDomino() {
       setView('SELECT_MODE');
       setActiveCategory(null);
       setError('');
-      socket.disconnect();
-      socketRef.current = null;
-    });
+    };
 
-    socket.on('queue_reset', (payload) => {
+    const onQueueReset = (payload) => {
       setError(payload.message ?? t('lobby.errorQueueReset'));
       setView('SELECT_MODE');
-      socket.disconnect();
-      socketRef.current = null;
-    });
+      setActiveCategory(null);
+    };
 
-    socket.on('error', (payload) => {
+    const onServerError = (payload) => {
       setError(payload.message ?? t('lobby.errorServer'));
       setView('SELECT_MODE');
-      socket.disconnect();
-      socketRef.current = null;
-    });
+      setActiveCategory(null);
+    };
 
-    socket.on('disconnect', () => {
-      if (view === 'IN_QUEUE') {
+    const onDisconnectWhileQueue = () => {
+      if (viewRef.current === 'IN_QUEUE') {
         setView('SELECT_MODE');
+        setActiveCategory(null);
       }
-    });
-  }, [token, navigate, view, updateUser, t]);
+    };
+
+    if (socket.connected) emitJoin();
+    socket.on('connect', emitJoin);
+    socket.on('game_start', onGameStart);
+    socket.on('pr_updated', onPrUpdated);
+    socket.on('pr_out_of_range', onPrOutOfRange);
+    socket.on('insufficient_balance', onInsufficientBalance);
+    socket.on('queue_reset', onQueueReset);
+    socket.on('error', onServerError);
+    socket.on('disconnect', onDisconnectWhileQueue);
+
+    return () => {
+      socket.off('connect', emitJoin);
+      socket.off('game_start', onGameStart);
+      socket.off('pr_updated', onPrUpdated);
+      socket.off('pr_out_of_range', onPrOutOfRange);
+      socket.off('insufficient_balance', onInsufficientBalance);
+      socket.off('queue_reset', onQueueReset);
+      socket.off('error', onServerError);
+      socket.off('disconnect', onDisconnectWhileQueue);
+      socket.emit('leave_queue');
+    };
+  }, [socket, view, activeCategory, allowLowerLeague, navigate, updateUser, t]);
 
   function handlePlayCategory(cat) {
     setError('');
+    if (!token) return;
     if (balanceLoading) {
       setError(t('lobby.balanceLoadingShort'));
       return;
@@ -656,15 +609,9 @@ export default function LobbyDomino() {
     }
     setActiveCategory(cat);
     setView('IN_QUEUE');
-    connectAndJoin(cat.categoryId, allowLowerLeague);
   }
 
   function handleCancel() {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('leave_queue');
-    }
-    socketRef.current?.disconnect();
-    socketRef.current = null;
     setView('SELECT_MODE');
     setActiveCategory(null);
     setError('');
@@ -737,7 +684,7 @@ export default function LobbyDomino() {
               </label>
             )}
 
-            {categories.length === 0 ? (
+            {lobbyServerCategories === null ? (
               <CategorySkeleton />
             ) : (
               <div className="lobby-category-grid">

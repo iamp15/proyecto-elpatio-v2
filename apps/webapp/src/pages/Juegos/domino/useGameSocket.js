@@ -1,37 +1,11 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { io } from 'socket.io-client';
-import { attachDominoSocketHeartbeat } from './attachDominoSocketHeartbeat';
-
-const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
+import { useEffect, useRef, useCallback } from 'react';
+import { useDominoSocket } from '../../../context/DominoSocketContext';
 
 /**
- * Hook para la página de juego activo (/juegos/domino/:roomId).
- *
- * Al conectar, emite automáticamente rejoin_room(roomId) para recuperar
- * el estado actual de la partida sin rehacer el matchmaking.
- *
- * @param {{
- *   token:       string | null,
- *   roomId:      string,
- *   onRejoined:  (payload: object) => void,
- *   onGameState: (state: object) => void,
- *   onGameOver:  (payload: object) => void,
- *   onRoundOver: (payload: object) => void,
- *   onChatMessage: (payload: object) => void,
- *   onInvalidMove: (payload: object) => void,
- *   onError:     (payload: object) => void,
- * }} options
- *
- * @returns {{
- *   connected:   boolean,
- *   reconnecting: boolean,
- *   sendAction:  (actionType: string, data?: object) => void,
- *   sendForfeit: () => void,
- *   sendChat:    (type: string, content: string) => void,
- * }}
+ * Suscripción al socket compartido (DominoSocketProvider) para la mesa activa.
+ * No crea ni destruye la conexión; solo registra listeners y emite rejoin_room.
  */
 export function useGameSocket({
-  token,
   roomId,
   onRejoined,
   onGameState,
@@ -44,114 +18,90 @@ export function useGameSocket({
   onGameCancelled,
   onError,
 }) {
-  const socketRef     = useRef(null);
-  const [connected,   setConnected]   = useState(false);
-  const [reconnecting, setReconnecting] = useState(false);
+  const { socket, connected, reconnecting } = useDominoSocket();
+  const socketRef = useRef(socket);
+  socketRef.current = socket;
 
-  // Callbacks estables en refs para evitar re-subscripciones por cambio de referencia
-  const onRejoinedRef          = useRef(onRejoined);
-  const onGameStateRef         = useRef(onGameState);
-  const onGameOverRef          = useRef(onGameOver);
-  const onPRUpdatedRef         = useRef(onPRUpdated);
-  const onRoundOverRef         = useRef(onRoundOver);
-  const onChatMessageRef       = useRef(onChatMessage);
-  const onInvalidMoveRef       = useRef(onInvalidMove);
-  const onAutoPlayActionRef    = useRef(onAutoPlayAction);
-  const onGameCancelledRef     = useRef(onGameCancelled);
-  const onErrorRef             = useRef(onError);
+  const onRejoinedRef = useRef(onRejoined);
+  const onGameStateRef = useRef(onGameState);
+  const onGameOverRef = useRef(onGameOver);
+  const onPRUpdatedRef = useRef(onPRUpdated);
+  const onRoundOverRef = useRef(onRoundOver);
+  const onChatMessageRef = useRef(onChatMessage);
+  const onInvalidMoveRef = useRef(onInvalidMove);
+  const onAutoPlayActionRef = useRef(onAutoPlayAction);
+  const onGameCancelledRef = useRef(onGameCancelled);
+  const onErrorRef = useRef(onError);
 
-  useEffect(() => { onRejoinedRef.current         = onRejoined;       }, [onRejoined]);
-  useEffect(() => { onGameStateRef.current        = onGameState;      }, [onGameState]);
-  useEffect(() => { onGameOverRef.current         = onGameOver;       }, [onGameOver]);
-  useEffect(() => { onPRUpdatedRef.current        = onPRUpdated;      }, [onPRUpdated]);
-  useEffect(() => { onRoundOverRef.current        = onRoundOver;      }, [onRoundOver]);
-  useEffect(() => { onChatMessageRef.current      = onChatMessage;    }, [onChatMessage]);
-  useEffect(() => { onInvalidMoveRef.current      = onInvalidMove;    }, [onInvalidMove]);
-  useEffect(() => { onAutoPlayActionRef.current   = onAutoPlayAction; }, [onAutoPlayAction]);
-  useEffect(() => { onGameCancelledRef.current    = onGameCancelled;  }, [onGameCancelled]);
-  useEffect(() => { onErrorRef.current            = onError;          }, [onError]);
+  useEffect(() => { onRejoinedRef.current = onRejoined; }, [onRejoined]);
+  useEffect(() => { onGameStateRef.current = onGameState; }, [onGameState]);
+  useEffect(() => { onGameOverRef.current = onGameOver; }, [onGameOver]);
+  useEffect(() => { onPRUpdatedRef.current = onPRUpdated; }, [onPRUpdated]);
+  useEffect(() => { onRoundOverRef.current = onRoundOver; }, [onRoundOver]);
+  useEffect(() => { onChatMessageRef.current = onChatMessage; }, [onChatMessage]);
+  useEffect(() => { onInvalidMoveRef.current = onInvalidMove; }, [onInvalidMove]);
+  useEffect(() => { onAutoPlayActionRef.current = onAutoPlayAction; }, [onAutoPlayAction]);
+  useEffect(() => { onGameCancelledRef.current = onGameCancelled; }, [onGameCancelled]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   useEffect(() => {
-    if (!token || !roomId) return;
+    if (!socket || !roomId) return undefined;
 
-    const socket = io(`${GAME_SERVER_URL}/domino`, {
-      auth:              { token },
-      transports:        ['websocket'],
-      reconnection:      true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
-    });
-
-    socketRef.current = socket;
-    attachDominoSocketHeartbeat(socket);
-
-    socket.on('connect', () => {
-      setConnected(true);
-      setReconnecting(false);
-      // Al conectar (o reconectar tras reload), solicitar el estado actual de la sala
+    const requestRejoin = () => {
       socket.emit('rejoin_room', { roomId });
-    });
+    };
 
-    socket.on('disconnect', () => {
-      setConnected(false);
-    });
-
-    socket.on('reconnect_attempt', () => {
-      setReconnecting(true);
-    });
-
-    socket.on('game_rejoined', (payload) => {
-      setReconnecting(false);
+    const onGameRejoined = (payload) => {
       onRejoinedRef.current?.(payload);
-    });
+    };
 
-    socket.on('game_state', (state) => {
-      onGameStateRef.current?.(state);
-    });
+    const handleGameState = (state) => onGameStateRef.current?.(state);
+    const handleGameOver = (payload) => onGameOverRef.current?.(payload);
+    const handlePRUpdated = (payload) => onPRUpdatedRef.current?.(payload);
+    const handleRoundOver = (payload) => onRoundOverRef.current?.(payload);
+    const handleChatMessage = (payload) => onChatMessageRef.current?.(payload);
+    const handleInvalidMove = (payload) => onInvalidMoveRef.current?.(payload);
+    const handleAutoPlayAction = (payload) => onAutoPlayActionRef.current?.(payload);
+    const handleGameCancelled = (payload) => onGameCancelledRef.current?.(payload);
+    const handleRejoinError = (payload) => onErrorRef.current?.(payload);
+    const handleSocketError = (payload) => onErrorRef.current?.(payload);
 
-    socket.on('game_over', (payload) => {
-      onGameOverRef.current?.(payload);
-    });
+    const onSocketConnect = () => {
+      requestRejoin();
+    };
 
-    socket.on('pr_updated', (payload) => {
-      onPRUpdatedRef.current?.(payload);
-    });
+    socket.on('connect', onSocketConnect);
+    socket.on('game_rejoined', onGameRejoined);
+    socket.on('game_state', handleGameState);
+    socket.on('game_over', handleGameOver);
+    socket.on('pr_updated', handlePRUpdated);
+    socket.on('round_over', handleRoundOver);
+    socket.on('chat_message', handleChatMessage);
+    socket.on('invalid_move', handleInvalidMove);
+    socket.on('autoplay_action', handleAutoPlayAction);
+    socket.on('game_cancelled', handleGameCancelled);
+    socket.on('rejoin_error', handleRejoinError);
+    socket.on('error', handleSocketError);
 
-    socket.on('round_over', (payload) => {
-      onRoundOverRef.current?.(payload);
-    });
-
-    socket.on('chat_message', (payload) => {
-      onChatMessageRef.current?.(payload);
-    });
-
-    socket.on('invalid_move', (payload) => {
-      onInvalidMoveRef.current?.(payload);
-    });
-
-    socket.on('autoplay_action', (payload) => {
-      onAutoPlayActionRef.current?.(payload);
-    });
-
-    socket.on('game_cancelled', (payload) => {
-      onGameCancelledRef.current?.(payload);
-    });
-
-    socket.on('rejoin_error', (payload) => {
-      onErrorRef.current?.(payload);
-    });
-
-    socket.on('error', (payload) => {
-      onErrorRef.current?.(payload);
-    });
+    if (socket.connected) {
+      requestRejoin();
+    }
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
-      setConnected(false);
-      setReconnecting(false);
+      socket.off('connect', onSocketConnect);
+      socket.off('game_rejoined', onGameRejoined);
+      socket.off('game_state', handleGameState);
+      socket.off('game_over', handleGameOver);
+      socket.off('pr_updated', handlePRUpdated);
+      socket.off('round_over', handleRoundOver);
+      socket.off('chat_message', handleChatMessage);
+      socket.off('invalid_move', handleInvalidMove);
+      socket.off('autoplay_action', handleAutoPlayAction);
+      socket.off('game_cancelled', handleGameCancelled);
+      socket.off('rejoin_error', handleRejoinError);
+      socket.off('error', handleSocketError);
     };
-  }, [token, roomId]);
+  }, [socket, roomId]);
 
   const sendAction = useCallback((actionType, data = {}) => {
     if (socketRef.current?.connected) {

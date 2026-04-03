@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { DominoSocketProvider } from './context/DominoSocketContext';
 import { AudioSettingsProvider } from './context/AudioSettingsContext';
 import { expandWebApp } from './lib/telegram';
 import MainLayout from './components/layout/MainLayout';
@@ -26,6 +27,7 @@ export default function App() {
           v7_relativeSplatPath: true,
         }}
       >
+        <DominoSocketProvider>
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Juegos />} />
@@ -37,6 +39,7 @@ export default function App() {
             <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
+        </DominoSocketProvider>
       </BrowserRouter>
     </AuthProvider>
     </AudioSettingsProvider>
