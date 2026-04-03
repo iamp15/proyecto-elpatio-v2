@@ -30,6 +30,25 @@ export function offBackButtonClick(callback) {
   getTelegramWebApp()?.BackButton.offClick(callback);
 }
 
+/**
+ * Registra un handler de eventos de la WebApp (p. ej. 'backButtonClicked').
+ * Equivale a BackButton.onClick cuando eventType es 'backButtonClicked'.
+ * @param {string} eventType
+ * @param {() => void} callback
+ */
+export function onWebAppEvent(eventType, callback) {
+  getTelegramWebApp()?.onEvent?.(eventType, callback);
+}
+
+/**
+ * Elimina el handler registrado con onWebAppEvent (misma referencia de callback).
+ * @param {string} eventType
+ * @param {() => void} callback
+ */
+export function offWebAppEvent(eventType, callback) {
+  getTelegramWebApp()?.offEvent?.(eventType, callback);
+}
+
 export function triggerHaptic(style = 'light') {
   try { getTelegramWebApp()?.HapticFeedback?.impactOccurred(style); } catch (_) {}
 }

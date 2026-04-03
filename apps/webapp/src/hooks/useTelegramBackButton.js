@@ -5,7 +5,11 @@ import {
   hideBackButton,
   onBackButtonClick,
   offBackButtonClick,
+  onWebAppEvent,
+  offWebAppEvent,
 } from '../lib/telegram';
+
+const BACK_BUTTON_CLICKED_EVENT = 'backButtonClicked';
 
 const MAIN_ROUTES = new Set(['/', '/wallet', '/settings']);
 
@@ -24,23 +28,32 @@ export default function useTelegramBackButton() {
     navigate(-1);
   }, [navigate]);
 
+  const handleLobbyBack = useCallback(() => {
+    navigate('/', { replace: true });
+  }, [navigate]);
+
   useEffect(() => {
     const isMainRoute = MAIN_ROUTES.has(location.pathname);
-    const hideBack =
-      isMainRoute ||
-      location.pathname === DOMINO_LOBBY_PATH ||
-      isDominoGameBoardPath(location.pathname);
+    const isLobby = location.pathname === DOMINO_LOBBY_PATH;
+    const hideBack = isMainRoute || isDominoGameBoardPath(location.pathname);
 
     if (hideBack) {
       hideBackButton();
       offBackButtonClick(handleBack);
+      offWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);
+    } else if (isLobby) {
+      offBackButtonClick(handleBack);
+      showBackButton();
+      onWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);
     } else {
+      offWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);
       onBackButtonClick(handleBack);
       showBackButton();
     }
 
     return () => {
       offBackButtonClick(handleBack);
+      offWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);
     };
-  }, [location.pathname, handleBack]);
+  }, [location.pathname, handleBack, handleLobbyBack]);
 }
