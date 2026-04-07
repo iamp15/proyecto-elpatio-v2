@@ -19,7 +19,7 @@ export default function Juegos() {
             {t('juegos.dominoDescription')}
           </p>
         </div>
-        <button type="button" className={`action-button ${styles.cardButton}`} onClick={() => navigate('/lobby-domino')}>
+        <button type="button" className={`action-button ${styles.cardButton}`} onClick={() => navigate('/ligas')}>
           {t('juegos.playNow')}
         </button>
       </div>

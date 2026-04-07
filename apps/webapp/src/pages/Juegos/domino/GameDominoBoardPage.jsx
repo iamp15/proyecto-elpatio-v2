@@ -394,7 +394,7 @@ export default function GameDominoBoardPage() {
         </p>
         <button
           className="domino-btn domino-btn-ghost"
-          onClick={() => navigate('/lobby-domino')}
+          onClick={() => navigate('/ligas')}
         >
           {t('gameBoard.backToLobby')}
         </button>
@@ -862,7 +862,7 @@ export default function GameDominoBoardPage() {
               : -(gameOver.prChanges?.loserLoss ?? 0)
           }
           currencyDelta={gameOver.winnerId === myUserId ? gameOver.prize_piedras ?? 0 : 0}
-          onLobby={() => navigate('/lobby-domino')}
+          onLobby={() => navigate('/ligas')}
         />
       )}
     </div>
