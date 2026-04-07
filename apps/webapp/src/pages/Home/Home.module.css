@@ -1,0 +1,131 @@
+.container {
+  --home-bg: #121212;
+  --home-card-bg: #1e1e1e;
+  /* Mismo rojo que el borde de la cápsula del UserHeader (#bf0603) */
+  --home-border: #bf0603;
+  --home-border-hover: #e01a12;
+  --home-accent: #b89a5e;
+  --home-text: #e8e8e8;
+  --home-text-muted: #a3a3a3;
+  --home-arrow: #737373;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 16px;
+  background: var(--home-bg);
+}
+
+.content {
+  flex: 1;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: var(--home-text-muted);
+  margin-top: 12px;
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--home-border);
+  background: var(--home-card-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+  text-align: left;
+  color: var(--home-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.25);
+  border-color: var(--home-border-hover);
+}
+
+.card:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Acento único (bronce / oro viejo): solo el icono */
+.cardIconWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--home-accent);
+}
+
+.cardIcon {
+  display: block;
+}
+
+.cardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitle {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--home-text);
+  letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+  font-size: 14px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--home-text-muted);
+  line-height: 1.45;
+}
+
+.cardArrow {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--home-arrow);
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.infoSection {
+  background: var(--home-card-bg);
+  border: 1px solid var(--home-border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  margin-top: 8px;
+}
+
+.infoTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--home-text);
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.infoText {
+  font-size: 15px;
+  color: var(--home-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}

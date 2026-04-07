@@ -11,14 +11,10 @@ import {
 
 const BACK_BUTTON_CLICKED_EVENT = 'backButtonClicked';
 
-const MAIN_ROUTES = new Set(['/', '/wallet', '/settings']);
+const HOME_ROUTE = '/';
+const PLAY_ROUTE = '/play';
 
-const DOMINO_LOBBY_PATH = '/lobby-domino';
-
-/** Partida de dominó en curso (misma regla que MainLayout `isGameRoute`). */
-function isDominoGameBoardPath(pathname) {
-  return /^\/juegos\/domino\/[^/]+$/.test(pathname);
-}
+const SECONDARY_ROUTES = new Set(['/ligas', '/tienda', '/torneos', '/perfil']);
 
 export default function useTelegramBackButton() {
   const location = useLocation();
@@ -33,15 +29,15 @@ export default function useTelegramBackButton() {
   }, [navigate]);
 
   useEffect(() => {
-    const isMainRoute = MAIN_ROUTES.has(location.pathname);
-    const isLobby = location.pathname === DOMINO_LOBBY_PATH;
-    const hideBack = isMainRoute || isDominoGameBoardPath(location.pathname);
+    const isHome = location.pathname === HOME_ROUTE;
+    const isPlay = location.pathname === PLAY_ROUTE;
+    const isSecondaryRoute = SECONDARY_ROUTES.has(location.pathname);
 
-    if (hideBack) {
+    if (isHome || isPlay) {
       hideBackButton();
       offBackButtonClick(handleBack);
       offWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);
-    } else if (isLobby) {
+    } else if (isSecondaryRoute) {
       offBackButtonClick(handleBack);
       showBackButton();
       onWebAppEvent(BACK_BUTTON_CLICKED_EVENT, handleLobbyBack);

@@ -3,25 +3,29 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  margin-left: -16px;
-  margin-right: -16px;
+  padding: 8px 14px;
+  /* Hueco a izquierda y derecha respecto al área de contenido (no toca los bordes de la pantalla) */
+  margin: 0 12px;
+  box-sizing: border-box;
+  border: 2px solid #bf0603;
+  border-radius: 9999px;
+  /* Misma familia cromática que el shell (#0d1117) — un tono más claro para la cápsula */
+  background: #161b22;
+  color: #e6edf3;
 }
 
 /* ── Avatar circular ─────────────────────── */
 .avatar {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
+  width: auto;
+  height: auto;
   border: none;
   padding: 0;
   cursor: pointer;
-  background: var(--color-accent, #3390ec);
+  background: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.2s ease, transform 0.15s ease;
 }
@@ -31,20 +35,6 @@
   opacity: 0.85;
 }
 
-.avatarImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatarInitials {
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1;
-  user-select: none;
-}
-
 /* ── Saludo central ─────────────────────── */
 .greeting {
   flex: 1;
@@ -52,7 +42,7 @@
   text-align: center;
   font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--color-text, #000000);
+  color: #c9d1d9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -61,6 +51,7 @@
 
 .name {
   font-weight: 600;
+  color: #f0f6fc;
 }
 
 /* ── Cápsula de balance ─────────────────── */
@@ -71,9 +62,9 @@
   gap: 5px;
   padding: 6px 12px;
   border-radius: 20px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   cursor: pointer;
-  background: var(--color-glass-bg, #ffffff);
+  background: rgba(255, 255, 255, 0.07);
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.2s ease, transform 0.15s ease;
 }
@@ -88,11 +79,12 @@
   height: 18px;
   object-fit: contain;
   flex-shrink: 0;
+  filter: brightness(1.15);
 }
 
 .balanceAmount {
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--color-text, #000000);
+  color: #f0f6fc;
   line-height: 1;
 }

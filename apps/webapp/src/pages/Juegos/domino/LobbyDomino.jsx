@@ -8,6 +8,7 @@ import { useDominoSocket } from '../../../context/DominoSocketContext';
 import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
 import useGameSounds from './hooks/useGameSounds';
+import { resolveDisplayName } from '../../../lib/userDisplayName';
 import InsufficientBalanceModal from './components/InsufficientBalanceModal';
 import './domino.css';
 /**
@@ -157,7 +158,7 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
   const progress   = categories.length ? calcPRProgress(userPR, categories) : 0;
   const isMaxRank  = !nextCat;
 
-  const displayName  = user?.first_name ?? user?.username ?? t('lobby.defaultPlayerName');
+  const displayName = resolveDisplayName(user, t('lobby.defaultPlayerName'));
   const avatarLetter = displayName[0]?.toUpperCase() ?? '?';
 
   const cssVars = currentCat ? {
@@ -638,7 +639,7 @@ export default function LobbyDomino() {
         userRank={userRank}
         balance={balance}
         categories={categories}
-        isSyncing={isSyncingProfile}
+        isSyncing={isSyncingProfile || lobbyServerCategories === null}
         t={t}
       />
 

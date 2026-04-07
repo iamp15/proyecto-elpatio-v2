@@ -50,7 +50,7 @@ async function main() {
 
   await User.findOneAndUpdate(
     { _id: TEST_USER_ID },
-    { $set: { balance_subunits: SALDO_INICIAL_SUBUNITS, username: 'ConcurrencyTester' } },
+    { $set: { balance_subunits: SALDO_INICIAL_SUBUNITS, tg_firstName: 'ConcurrencyTester', tg_username: null } },
     { upsert: true, new: true },
   );
 

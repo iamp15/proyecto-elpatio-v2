@@ -24,9 +24,20 @@ const RANK_COLORS = {
  *   },
  *   isActiveTurn?: boolean,
  *   tileCount?:    number | null,
+ *   showPr?:       boolean,
+ *   showNameLabel?: boolean,
  * }} props
  */
-export default function PlayerProfileFrame({ player, score = 0, targetScore = null, layoutSide = 'left', isActiveTurn = false, tileCount = null }) {
+export default function PlayerProfileFrame({
+  player,
+  score = 0,
+  targetScore = null,
+  layoutSide = 'left',
+  isActiveTurn = false,
+  tileCount = null,
+  showPr = true,
+  showNameLabel = true,
+}) {
   const {
     name         = 'Jugador',
     avatarUrl    = null,
@@ -50,23 +61,25 @@ export default function PlayerProfileFrame({ player, score = 0, targetScore = nu
       className="relative flex flex-col items-center gap-1"
       style={{ pointerEvents: 'none', userSelect: 'none' }}
     >
-      {/* ── Nombre del jugador ── */}
-      <span
-        style={{
-          fontSize:      isSmall ? '0.58rem' : '0.65rem',
-          fontWeight:    600,
-          maxWidth:      isSmall ? '56px' : '72px',
-          overflow:      'hidden',
-          textOverflow:  'ellipsis',
-          whiteSpace:    'nowrap',
-          lineHeight:    1,
-          color:         'rgba(226,232,240,0.6)',
-          textShadow:    '0 1px 6px rgba(0,0,0,0.9)',
-          letterSpacing: '0.02em',
-        }}
-      >
-        {name}
-      </span>
+      {/* ── Nombre del jugador (solo en partida / cuando se solicita) ── */}
+      {showNameLabel && (
+        <span
+          style={{
+            fontSize:      isSmall ? '0.58rem' : '0.65rem',
+            fontWeight:    600,
+            maxWidth:      isSmall ? '56px' : '72px',
+            overflow:      'hidden',
+            textOverflow:  'ellipsis',
+            whiteSpace:    'nowrap',
+            lineHeight:    1,
+            color:         'rgba(226,232,240,0.6)',
+            textShadow:    '0 1px 6px rgba(0,0,0,0.9)',
+            letterSpacing: '0.02em',
+          }}
+        >
+          {name}
+        </span>
+      )}
 
       {/* ── Contenedor relativo: avatar + badge slot + PR ── */}
       <div className="relative">
@@ -135,21 +148,23 @@ export default function PlayerProfileFrame({ player, score = 0, targetScore = nu
           <PlayerBadge variant={badgeVariant} color={rankColor} />
         </div>
 
-        {/* ── Indicador PR ── */}
-        <div
-          className="absolute bg-black border border-gray-600 text-white font-bold rounded-sm"
-          style={{
-            top:        isSmall ? '-2px' : '-4px',
-            right:      isSmall ? '-4px' : '-8px',
-            fontSize:   isSmall ? '8px' : '10px',
-            padding:    isSmall ? '1px 4px' : '2px 6px',
-            lineHeight: 1.3,
-            boxShadow:  '0 1px 4px rgba(0,0,0,0.6)',
-            zIndex:     20,
-          }}
-        >
-          {pr.toLocaleString()}
-        </div>
+        {/* ── Indicador PR (solo en partidas de dominó) ── */}
+        {showPr && (
+          <div
+            className="absolute bg-black border border-gray-600 text-white font-bold rounded-sm"
+            style={{
+              top:        isSmall ? '-2px' : '-4px',
+              right:      isSmall ? '-4px' : '-8px',
+              fontSize:   isSmall ? '8px' : '10px',
+              padding:    isSmall ? '1px 4px' : '2px 6px',
+              lineHeight: 1.3,
+              boxShadow:  '0 1px 4px rgba(0,0,0,0.6)',
+              zIndex:     20,
+            }}
+          >
+            {pr.toLocaleString()}
+          </div>
+        )}
 
         {/* ── Puntuación de la Liga (Flotante a un lado) ── */}
         {targetScore && (

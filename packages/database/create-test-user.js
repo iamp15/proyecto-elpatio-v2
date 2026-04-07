@@ -2,7 +2,7 @@
  * Script para crear o actualizar un usuario de prueba con saldo específico.
  *
  * Uso:
- *   node packages/database/create-test-user.js [userId] [piedras] [username]
+ *   node packages/database/create-test-user.js [userId] [piedras] [nombreVisible]
  *
  * Ejemplos:
  *   node packages/database/create-test-user.js                   → ID:12345678, 50 piedras, "TestUser"
@@ -25,7 +25,7 @@ const DEFAULT_USERNAME = 'TestUser';
 async function main() {
   const userId   = Number(process.argv[2]) || DEFAULT_ID;
   const piedras  = Number(process.argv[3]) ?? DEFAULT_PIEDRAS;
-  const username = process.argv[4] || DEFAULT_USERNAME;
+  const nombreVisible = process.argv[4] || DEFAULT_USERNAME;
 
   if (Number.isNaN(userId) || userId <= 0) {
     console.error('❌ userId debe ser un número positivo.');
@@ -47,14 +47,14 @@ async function main() {
   console.log('  Crear / Actualizar usuario de prueba');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log(`  ID       : ${userId}`);
-  console.log(`  Username : ${username}`);
+  console.log(`  Nombre (tg_firstName) : ${nombreVisible}`);
   console.log(`  Piedras  : ${piedras}  (${balance_subunits} sub-unidades)\n`);
 
   await connectDB(uri);
 
   const user = await User.findOneAndUpdate(
     { _id: userId },
-    { $set: { username, balance_subunits } },
+    { $set: { tg_firstName: nombreVisible, tg_username: null, balance_subunits } },
     { upsert: true, new: true },
   );
 

@@ -1,6 +1,8 @@
 .container {
   position: relative;
-  width: 100vw;
+  /* 100vw ignora la barra de scroll y provoca desbordamiento horizontal; 100% respeta el viewport real */
+  width: 100%;
+  max-width: 100%;
   min-height: 100dvh;
   height: 100dvh;
   overflow: hidden;
@@ -17,16 +19,15 @@
   -webkit-overflow-scrolling: touch;
   /* padding-top: espacio para botones nativos de Telegram */
   padding-top: env(safe-area-inset-top, 12px);
-  /* padding-bottom: altura TabBar + su margin + safe area inferior */
-  padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
+  /* padding-bottom: margen + safe area inferior */
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
-/* En partida: fondo oscuro + sin padding inferior (TabBar oculta) */
-.contentGame {
+/* Tema dominó (oscuro) para todas las rutas excepto home */
+.containerDominoTheme {
   background-color: #0d1117;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.containerGame {
+.contentDominoTheme {
   background-color: #0d1117;
 }

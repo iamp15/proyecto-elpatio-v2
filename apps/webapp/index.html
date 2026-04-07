@@ -5,9 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#000" />
     <title>El Patio</title>
+    <link rel="preload" as="image" href="/assets/splash_bg.png" type="image/png" fetchpriority="high" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #0a0c10;
+      }
+      #root {
+        min-height: 100%;
+        min-height: 100dvh;
+        position: relative;
+        z-index: 1;
+      }
+      #splash-critical {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background-color: #0a0c10;
+        background-image: url('/assets/splash_bg.png');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+    </style>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
+    <div id="splash-critical" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

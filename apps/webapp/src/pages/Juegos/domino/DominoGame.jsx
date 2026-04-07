@@ -1,10 +1,8 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import './domino.css';
 import DominoBoard        from './components/DominoBoard';
 import PlayerHand         from './components/PlayerHand';
-import PlayerProfileFrame from './components/PlayerProfileFrame';
+import PlayerAvatar       from '../../../components/PlayerAvatar';
 import ChatBubble         from './components/ChatBubble';
 import PlayerChatControls from './components/PlayerChatControls';
 import TurnTimer          from './components/TurnTimer';
@@ -16,16 +14,16 @@ import useGameSounds      from './hooks/useGameSounds';
  *
  * Layout:
  *   ┌──────────────────────┐
- *   │  PlayerProfileFrame  │  ← oponente (arriba derecha, flotante)
+ *   │  PlayerAvatar        │  ← oponente (arriba derecha, flotante)
  *   │  DominoBoard         │  ← cadena de fichas, scroll horizontal
- *   │  PlayerProfileFrame  │  ← jugador local (abajo izquierda, flotante)
+ *   │  PlayerAvatar        │  ← jugador local (abajo izquierda, flotante)
  *   │  PlayerHand          │  ← mano propia + acciones
  *   └──────────────────────┘
  *
  * @param {{
  *   gameState:  object,
  *   myUserId:   number,
- *   myPlayer:   { name: string, avatarUrl: string|null, pr: number, rankColor: string, badgeVariant: string } | null,
+ *   viewerUser: Usuario autenticado (AuthContext) para cosméticos y foto en el perfil local.
  *   onAction:   (actionType: string, data?: object) => void,
  *   isGameOverModalVisible: boolean,
  *   chatBubbles: object,
@@ -35,13 +33,12 @@ import useGameSounds      from './hooks/useGameSounds';
 export default function DominoGame({
   gameState,
   myUserId,
-  myPlayer = null,
+  viewerUser = null,
   onAction,
   isGameOverModalVisible = false,
   chatBubbles = {},
   onSendChat,
 }) {
-  const { t } = useTranslation();
   const sounds = useGameSounds();
   const {
     board               = [],
@@ -62,15 +59,31 @@ export default function DominoGame({
   const isMyTurn = turn === myUserId;
   const [selectedTileForPosition, setSelectedTileForPosition] = useState(null);
 
-  // Datos del oponente derivados de gameState.players
+  const myEntry = players.find((p) => p.userId === myUserId) ?? null;
+
+  /** Usuario local: perfil (cosméticos) + PR/rango de la partida si vienen en `players`. */
+  const localUserForAvatar = useMemo(() => {
+    if (!viewerUser) return null;
+    return {
+      ...viewerUser,
+      pr:    myEntry?.pr ?? viewerUser.pr ?? 1000,
+      rank:  myEntry?.rank ?? viewerUser.rank ?? 'BRONCE',
+      avatar_id: viewerUser.avatar_id ?? 'telegram',
+      frame_id: viewerUser.frame_id ?? 'rank',
+      badge_contexts: viewerUser.badge_contexts ?? { global: 'default', domino: null },
+    };
+  }, [viewerUser, myEntry]);
+
+  // Oponente: datos enriquecidos por game-server (displayName, cosméticos)
   const opponentData = players.find((p) => p.userId !== myUserId) ?? null;
-  const opponentPlayer = opponentData ? {
-    name:         opponentData.displayName ?? opponentData.username ?? 'Rival',
-    avatarUrl:    opponentData.avatarUrl ?? null,
-    pr:           opponentData.pr ?? 1000,
-    rankColor:    opponentData.rank ?? 'BRONCE',
-    badgeVariant: 'default',
-  } : null;
+  const opponentUserForAvatar = useMemo(() => {
+    if (!opponentData) return null;
+    return {
+      ...opponentData,
+      photo_url: opponentData.photo_url ?? null,
+    };
+  }, [opponentData]);
+
   const opponentTileCount = opponentData ? (opponentTileCounts[opponentData.userId] ?? null) : null;
   const isOpponentTurn    = turn === opponentData?.userId;
 
@@ -129,17 +142,21 @@ export default function DominoGame({
       }} />
 
       {/* ── Marco del Oponente (Arriba Derecha) ── */}
-      {opponentPlayer && (
+      {opponentUserForAvatar && (
         <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
           <ChatBubble bubble={chatBubbles[opponentData?.userId]} isOpponent={true} />
           <div style={{ pointerEvents: 'none' }}>
-            <PlayerProfileFrame
-              player={opponentPlayer}
+            <PlayerAvatar
+              user={opponentUserForAvatar}
+              size="medium"
+              showName={false}
+              showNameLabel
+              showPR
+              layoutSide="right"
+              isActiveTurn={isOpponentTurn}
               score={scores[opponentData?.userId] ?? 0}
               targetScore={targetScore}
-              layoutSide="right"
               tileCount={opponentTileCount}
-              isActiveTurn={isOpponentTurn}
             />
           </div>
         </div>
@@ -157,22 +174,28 @@ export default function DominoGame({
       <TurnTimer
         turnEndsAt={turnEndsAt}
         isMyTurn={isMyTurn}
+        disabled={isGameOverModalVisible || status === 'FINISHED'}
       />
 
       {/* ── Marco del Jugador Local (Abajo Izquierda) ── */}
-      {myPlayer && (
+      {localUserForAvatar && (
         <div style={{ position: 'absolute', bottom: '148px', left: '16px', zIndex: 40, pointerEvents: 'none' }}>
           {onSendChat && (
             <PlayerChatControls onSendChat={(type, content) => onSendChat?.(type, content)} />
           )}
           <ChatBubble bubble={chatBubbles[myUserId]} isOpponent={false} />
           <div style={{ pointerEvents: 'auto' }}>
-            <PlayerProfileFrame
-              player={myPlayer}
-              score={scores[myUserId] ?? 0}
-              targetScore={targetScore}
+<PlayerAvatar
+              user={localUserForAvatar}
+              size="medium"
+              showName={false}
+              showNameLabel
+              showPR
               layoutSide="left"
               isActiveTurn={isMyTurn}
+              score={scores[myUserId] ?? 0}
+              targetScore={targetScore}
+              tileCount={null}
             />
           </div>
         </div>

@@ -8,6 +8,7 @@
     "test:concurrencia": "node test-concurrencia.js",
     "create-user": "node create-test-user.js",
     "migrate:users": "node migrate-user-schema.js",
+    "migrate:tg-fields": "node migrate-user-tg-fields.js",
     "seed:config": "node seed-game-config.js"
   },
   "dependencies": {

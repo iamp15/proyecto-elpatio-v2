@@ -45,6 +45,12 @@
     "noConnection": "Sin conexión — reconectando…",
     "gameCancelled": "La partida fue cancelada."
   },
+  "forfeitWinAnnouncement": {
+    "kicker": "Victoria",
+    "titleDisconnect": "{{name}} se desconectó",
+    "titleForfeit": "{{name}} abandonó la partida",
+    "subtitle": "Ganas por abandono del rival. Preparando resultado…"
+  },
   "roundOverOverlay": {
     "handWon": "¡MANO GANADA!",
     "handLost": "MANO PERDIDA",
@@ -135,12 +141,6 @@
     "viewProfile": "Ver perfil",
     "viewWallet": "Ver billetera"
   },
-  "tabBar": {
-    "games": "Juegos",
-    "wallet": "Billetera",
-    "settings": "Ajustes",
-    "navLabel": "Navegación principal"
-  },
   "profile": {
     "title": "Perfil"
   },
@@ -184,5 +184,21 @@
     "lets_go": "¡Vamos!",
     "close_one": "Uff, casi",
     "well_played": "¡Bien jugado!"
+  },
+  "home": {
+    "welcome": "Bienvenido a El Patio Dominó",
+    "subtitle": "La experiencia definitiva de dominó. Juega, compite y escala rangos.",
+    "cards": {
+      "leagues": "Ligas",
+      "leaguesSubtitle": "Compite en partidas clasificatorias",
+      "tournaments": "Torneos",
+      "tournamentsSubtitle": "Únete a eventos especiales",
+      "store": "Tienda",
+      "storeSubtitle": "Consigue piedras y cosméticos",
+      "profile": "Perfil",
+      "profileSubtitle": "Mira tus estadísticas e inventario"
+    },
+    "infoTitle": "Acerca de El Patio Dominó",
+    "infoText": "Un juego exclusivo de dominó donde la estrategia se encuentra con la competencia. Gana piedras, desbloquea cosméticos y demuestra que eres el mejor en la mesa."
   }
 }

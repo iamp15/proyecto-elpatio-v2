@@ -59,6 +59,8 @@ let settings = { ...DEFAULT_SETTINGS };
 /** @type {'lobby' | 'game' | null} */
 let activeMusic = null;
 let visibilityListenersAttached = false;
+/** false mientras el splash bloquea música (lobby/juego aún no visibles). */
+let appAllowsMusicPlayback = true;
 
 function pauseAllHowls() {
   for (const key of Object.keys(howls)) {
@@ -67,7 +69,7 @@ function pauseAllHowls() {
 }
 
 function resumeMusicIfAllowed() {
-  if (document.hidden || !canPlayMusic(settings)) return;
+  if (!appAllowsMusicPlayback || document.hidden || !canPlayMusic(settings)) return;
   if (activeMusic === 'lobby' && !howls.lobbyMusic.playing()) {
     howls.lobbyMusic.volume(clampUnit(LOBBY_MUSIC_BASE * settings.musicVolume));
     howls.lobbyMusic.mute(false);
@@ -104,6 +106,21 @@ function playSfxInternal(baseKey) {
 }
 
 export const audioManager = {
+  /**
+   * El splash llama `false` al montar y `true` al terminar el arranque.
+   * Si se bloquea con música ya activa, se pausa hasta desbloquear.
+   * @param {boolean} allowed
+   */
+  setAppMusicPlaybackAllowed(allowed) {
+    appAllowsMusicPlayback = allowed;
+    if (!allowed) {
+      howls.lobbyMusic.pause();
+      howls.gameMusic.pause();
+      return;
+    }
+    resumeMusicIfAllowed();
+  },
+
   /**
    * Última configuración de audio (misma forma que useAudioSettings().settings).
    * @param {Partial<typeof DEFAULT_SETTINGS>} next
@@ -152,7 +169,7 @@ export const audioManager = {
     howls.lobbyMusic.volume(clampUnit(LOBBY_MUSIC_BASE * s.musicVolume));
     howls.lobbyMusic.mute(!canPlayMusic(s));
     activeMusic = 'lobby';
-    if (!canPlayMusic(s) || document.hidden) return;
+    if (!appAllowsMusicPlayback || !canPlayMusic(s) || document.hidden) return;
     if (!howls.lobbyMusic.playing()) howls.lobbyMusic.play();
   },
 
@@ -167,7 +184,7 @@ export const audioManager = {
     howls.gameMusic.volume(clampUnit(GAME_MUSIC_BASE * s.musicVolume));
     howls.gameMusic.mute(!canPlayMusic(s));
     activeMusic = 'game';
-    if (!canPlayMusic(s) || document.hidden) return;
+    if (!appAllowsMusicPlayback || !canPlayMusic(s) || document.hidden) return;
     if (!howls.gameMusic.playing()) howls.gameMusic.play();
   },
 

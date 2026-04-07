@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { SplashPhaseProvider } from './context/SplashPhaseContext';
 import './index.css';
 import './styles/theme.css';
 import './i18n/config';
@@ -8,7 +9,9 @@ import './i18n/config';
 console.log('[ElPatio] main.tsx cargado (bundle con logs de login)');
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <SplashPhaseProvider>
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  </SplashPhaseProvider>
 );

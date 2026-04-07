@@ -48,4 +48,31 @@ function parseInitDataUser(initDataString) {
   }
 }
 
-module.exports = { validateInitData, parseInitDataUser };
+/**
+ * @param {string} [raw]
+ * @returns {string|null}
+ */
+function normalizeTelegramFirstName(raw) {
+  if (raw == null || typeof raw !== 'string') return null;
+  const t = raw.trim();
+  return t === '' ? null : t;
+}
+
+/**
+ * Handle de Telegram sin @; minúsculas para consistencia con la API de Telegram.
+ * @param {string} [raw]
+ * @returns {string|null}
+ */
+function normalizeTelegramUsername(raw) {
+  if (raw == null || typeof raw !== 'string') return null;
+  const t = raw.trim().replace(/^@+/, '').toLowerCase();
+  if (t === '') return null;
+  return /^[a-z0-9_]{5,32}$/.test(t) ? t : null;
+}
+
+module.exports = {
+  validateInitData,
+  parseInitDataUser,
+  normalizeTelegramFirstName,
+  normalizeTelegramUsername,
+};

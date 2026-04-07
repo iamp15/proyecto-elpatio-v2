@@ -276,6 +276,7 @@ class MatchmakingQueue {
     if (result.success) {
       room.start();
       this.roomManager.startGame(room);
+      room.dominoLiveContext = { nsp: this.nsp, roomManager: this.roomManager };
 
       for (const b of result.balancesAfter) {
         const player = room.players.find((p) => p.socketId === b.socketId);

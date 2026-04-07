@@ -6,6 +6,7 @@ const DominoMatch = require('./models/DominoMatch');
 const LudoMatch = require('./models/LudoMatch');
 const GameConfig = require('./models/GameConfig');
 const { createTransaction } = require('./services/createTransaction');
+const { runDominoSettlement } = require('./services/runDominoSettlement');
 
 // Configuramos para que Mongoose use promesas modernas
 mongoose.Promise = global.Promise;
@@ -34,6 +35,7 @@ const connectDB = async (uri) => {
 module.exports = {
   connectDB,
   createTransaction,
+  runDominoSettlement,
   User,
   GameSession,
   Transaction,

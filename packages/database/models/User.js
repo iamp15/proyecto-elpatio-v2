@@ -9,7 +9,48 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  username: String,
+  /** Nombre (first name) tal como viene de Telegram WebApp initData.user.first_name */
+  tg_firstName: {
+    type: String,
+    trim: true,
+  },
+  /** @username de Telegram sin @; puede ser null si el usuario no tiene handle público */
+  tg_username: {
+    type: String,
+    trim: true,
+    lowercase: true,
+  },
+  nickname: {
+    type: String,
+    trim: true,
+  },
+  avatar_id: {
+    type: String,
+    default: 'telegram',
+  },
+  frame_id: {
+    type: String,
+    default: 'rank',
+  },
+  badge_id: {
+    type: String,
+    default: 'default',
+  },
+  badge_contexts: {
+    type: Object,
+    default: {
+      global: 'default',
+      domino: null,
+    },
+  },
+  inventory: {
+    type: Object,
+    default: {
+      avatars: ['telegram', 'default'],
+      frames: ['rank'],
+      badges: ['default'],
+    },
+  },
   pr: {
     type: Number,
     default: 0,
@@ -47,5 +88,10 @@ const userSchema = new mongoose.Schema({
 userSchema.virtual('piedras_display').get(function() {
   return Math.floor(this.balance_subunits / 100);
 });
+
+userSchema.index(
+  { nickname: 1 },
+  { unique: true, sparse: true, collation: { locale: 'es', strength: 2 } },
+);
 
 module.exports = mongoose.model('User', userSchema);

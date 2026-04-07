@@ -1,21 +1,15 @@
-import { Outlet, useLocation } from 'react-router-dom';
-import TabBar from './TabBar';
+import { Outlet } from 'react-router-dom';
 import styles from './MainLayout.module.css';
 import useTelegramBackButton from '../../hooks/useTelegramBackButton';
 
-const isGameRoute = (path) => /^\/juegos\/domino\/[^/]+$/.test(path);
-
 export default function MainLayout() {
   useTelegramBackButton();
-  const { pathname } = useLocation();
-  const isGame = isGameRoute(pathname);
 
   return (
-    <div className={`${styles.container} ${isGame ? styles.containerGame : ''}`}>
-      <main className={`${styles.content} ${isGame ? styles.contentGame : ''}`}>
+    <div className={`${styles.container} ${styles.containerDominoTheme}`}>
+      <main className={`${styles.content} ${styles.contentDominoTheme}`}>
         <Outlet />
       </main>
-      <TabBar />
     </div>
   );
 }

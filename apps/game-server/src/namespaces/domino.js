@@ -9,6 +9,7 @@ const configManager = require('../config/ConfigManager');
 const { User } = require('@el-patio/database');
 const timerManager = require('../utils/TimerManager');
 const { setupDominoHeartbeat } = require('../sockets/setupDominoHeartbeat');
+const { runDominoAutoplayPlan } = require('../utils/runDominoAutoplayPlan');
 
 /**
  * Registra el namespace /domino en la instancia de Socket.io.
@@ -27,6 +28,7 @@ function createDominoNamespace(io) {
    */
   async function _broadcastResult(room, result) {
     if (result.gameOver === true) {
+      room.firstHandCompleted = true;
       room.players.forEach((p) => {
         p.socket?.emit('game_state', room.game.getState(p.userId));
       });
@@ -45,6 +47,7 @@ function createDominoNamespace(io) {
       roomManager.delete(room.roomId);
 
     } else if (result.roundOver === true) {
+      room.firstHandCompleted = true;
       room.players.forEach((p) => {
         p.socket?.emit('game_state', room.game.getState(p.userId));
       });
@@ -70,12 +73,11 @@ function createDominoNamespace(io) {
     }
   }
 
-  // ── Auto-Play por timeout: revisa todas las salas cada 500ms ───────────────
+  // ── Auto-Play por timeout de turno (~30s): revisa salas cada 500ms ─────────
   //
-  // Cuando expira el turno, _planAutoPlay() devuelve la secuencia de acciones
-  // (robos + acción final) SIN tocar el estado. Luego ejecutamos cada paso con
-  // un delay de AUTOPLAY_STEP_MS para que el cliente pueda mostrar las animaciones.
-  const AUTOPLAY_STEP_MS = 650;
+  // Si el jugador sigue desconectado al expirar el turno, se inicia el contador
+  // de 90s de abandono (Room.startDisconnectTimer). La secuencia de jugadas
+  // usa retraso inicial aleatorio + pasos espaciados (runDominoAutoplayPlan).
 
   setInterval(() => {
     for (const room of roomManager._rooms.values()) {
@@ -96,98 +98,20 @@ function createDominoNamespace(io) {
             `[Domino] Auto-Play por timeout sala=${room.roomId} jugador=${timedOutPlayerId} pasos=${plan.length}`,
           );
 
-          room._autoPlayPending = true;
-
-          plan.forEach((action, i) => {
-            const isLast = i === plan.length - 1;
-
-            setTimeout(async () => {
-              try {
-                // Guardia: la sala/partida puede haber terminado entre steps
-                if (!room.game || room.status !== 'IN_GAME') {
-                  room._autoPlayPending = false;
-                  return;
-                }
-                // Guardia: si el jugador ya actuó manualmente, cancelamos
-                if (room.game.turn !== timedOutPlayerId && !isLast) {
-                  room._autoPlayPending = false;
-                  return;
-                }
-
-                // Notificar al cliente para reproducir el sonido del paso
-                nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
-
-                const stepResult = room.game.handleAction(timedOutPlayerId, action);
-
-                if (isLast) {
-                  room._autoPlayPending = false;
-                  await _broadcastResult(room, stepResult);
-                } else {
-                  // Paso intermedio (robo): emitir estado actualizado a cada jugador
-                  room.players.forEach((p) => {
-                    p.socket?.emit('game_state', room.game.getState(p.userId));
-                  });
-                }
-              } catch (err) {
-                room._autoPlayPending = false;
-                console.error(`[Domino] Error en step ${i} autoplay (sala=${room.roomId}):`, err.message);
-              }
-            }, i * AUTOPLAY_STEP_MS);
-          });
-        }
-        
-        // 2. Verificar autoplay por desconexión (90s)
-        const currentTurn = room.game.turn;
-        if (currentTurn && room.autoplayEnabled.get(currentTurn) && !room.suspended) {
-          // Jugador desconectado con autoplay activado
-          console.log(`[Domino] Autoplay por desconexión sala=${room.roomId} jugador=${currentTurn}`);
-          
-          const plan = room.game._planAutoPlay();
-          if (plan.length > 0) {
-            room._autoPlayPending = true;
-
-            plan.forEach((action, i) => {
-              const isLast = i === plan.length - 1;
-
-              setTimeout(async () => {
-                try {
-                  // Guardia: la sala/partida puede haber terminado entre steps
-                  if (!room.game || room.status !== 'IN_GAME') {
-                    room._autoPlayPending = false;
-                    return;
-                  }
-                  // Guardia: si el jugador ya actuó manualmente, cancelamos
-                  if (room.game.turn !== currentTurn && !isLast) {
-                    room._autoPlayPending = false;
-                    return;
-                  }
-                  // Guardia: si el jugador ya se reconectó, cancelamos
-                  if (!room.autoplayEnabled.get(currentTurn)) {
-                    room._autoPlayPending = false;
-                    return;
-                  }
-
-                  // Notificar al cliente para reproducir el sonido del paso
-                  nsp.to(room.roomId).emit('autoplay_action', { actionType: action.actionType });
-
-                  const stepResult = room.game.handleAction(currentTurn, action);
-
-                  if (isLast) {
-                    room._autoPlayPending = false;
-                    await _broadcastResult(room, stepResult);
-                  } else {
-                    // Paso intermedio (robo): emitir estado actualizado a cada jugador
-                    room.players.forEach((p) => {
-                      p.socket?.emit('game_state', room.game.getState(p.userId));
-                    });
-                  }
-                } catch (err) {
-                  room._autoPlayPending = false;
-                  console.error(`[Domino] Error en step ${i} autoplay por desconexión (sala=${room.roomId}):`, err.message);
-                }
-              }, i * AUTOPLAY_STEP_MS);
-            });
+          if (
+            room.disconnectedPlayers.has(timedOutPlayerId) &&
+            !room.disconnectTimers.has(timedOutPlayerId)
+          ) {
+            room.startDisconnectTimer(timedOutPlayerId);
           }
+
+          runDominoAutoplayPlan({
+            room,
+            nsp,
+            actorUserId: timedOutPlayerId,
+            plan,
+            broadcastResult: _broadcastResult,
+          });
         }
 
       } catch (err) {
@@ -441,7 +365,10 @@ function createDominoNamespace(io) {
           return socket.emit('error', { message: 'No se pudo determinar el ganador por abandono.' });
         }
 
-        await handleGameOver(room, winnerId, nsp, finalScores);
+        await handleGameOver(room, winnerId, nsp, finalScores, {
+          forfeit: true,
+          forfeitingUserId: userId,
+        });
 
         for (const player of room.players) {
           player.socket.data.currentRoom = null;

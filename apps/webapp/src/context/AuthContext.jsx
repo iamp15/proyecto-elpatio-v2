@@ -82,6 +82,8 @@ export function AuthProvider({ children }) {
   // true mientras no hayamos sincronizado el perfil con la BD (evita mostrar datos stale)
   const [isSyncingProfile, setIsSyncingProfile] = useState(!!stored.token);
   const loginAttempted = useRef(false);
+  /** true tras resolver login automático (Telegram/dev) o si no aplica; el splash espera esto. */
+  const [authBootComplete, setAuthBootComplete] = useState(false);
 
   const clearAndRedirect = useCallback(() => {
     setToken(null);
@@ -109,12 +111,14 @@ export function AuthProvider({ children }) {
         const data = await api.request('POST', '/auth/login', { body: { initData: twa.initData } });
         const twaUser = twa.initDataUnsafe?.user ?? {};
         const userData = data.user ? {
-          id:         data.user.id,
-          username:   data.user.username   ?? null,
-          first_name: data.user.first_name ?? twaUser.first_name ?? null,
-          photo_url:  data.user.photo_url  ?? twaUser.photo_url  ?? null,
-          pr:         data.user.pr         ?? 1000,
-          rank:       data.user.rank       ?? 'BRONCE',
+          id:           data.user.id,
+          tg_firstName: data.user.tg_firstName ?? data.user.first_name ?? twaUser.first_name ?? null,
+          tg_username:  data.user.tg_username ?? data.user.username ?? twaUser.username ?? null,
+          username:     data.user.username ?? twaUser.username ?? null,
+          first_name:   data.user.first_name ?? twaUser.first_name ?? null,
+          photo_url:    data.user.photo_url  ?? twaUser.photo_url  ?? null,
+          pr:           data.user.pr         ?? 1000,
+          rank:         data.user.rank       ?? 'BRONCE',
         } : null;
         setToken(data.token);
         setUser(userData);
@@ -126,12 +130,14 @@ export function AuthProvider({ children }) {
       if (isDevEnv()) {
         const data = await api.request('POST', '/auth/login', { body: { isMock: true, userId: MOCK_USER_ID } });
         const userData = data.user ? {
-          id:         data.user.id,
-          username:   data.user.username   ?? null,
-          first_name: data.user.first_name ?? null,
-          photo_url:  data.user.photo_url  ?? null,
-          pr:         data.user.pr         ?? 1000,
-          rank:       data.user.rank       ?? 'BRONCE',
+          id:           data.user.id,
+          tg_firstName: data.user.tg_firstName ?? data.user.first_name ?? null,
+          tg_username:  data.user.tg_username ?? data.user.username ?? null,
+          username:     data.user.username ?? null,
+          first_name:   data.user.first_name ?? null,
+          photo_url:    data.user.photo_url  ?? null,
+          pr:           data.user.pr         ?? 1000,
+          rank:         data.user.rank       ?? 'BRONCE',
         } : null;
         setToken(data.token);
         setUser(userData);
@@ -211,11 +217,19 @@ export function AuthProvider({ children }) {
       const data = await api.request('GET', '/auth/me');
       if (data?.user) {
         const fresh = {
-          // Conserva campos de sesión (first_name, photo_url) que /me no devuelve
+          // Conserva campos de sesión (photo_url, etc.) que /me no devuelve
           ...(user ?? {}),
-          id:   data.user.id,
-          pr:   data.user.pr   ?? 1000,
-          rank: data.user.rank ?? 'BRONCE',
+          id:              data.user.id,
+          pr:              data.user.pr   ?? 1000,
+          rank:            data.user.rank ?? 'BRONCE',
+          tg_firstName:    data.user.tg_firstName ?? data.user.first_name ?? (user ?? {}).tg_firstName ?? (user ?? {}).first_name ?? null,
+          tg_username:     data.user.tg_username ?? data.user.username ?? (user ?? {}).tg_username ?? (user ?? {}).username ?? null,
+          username:        data.user.username ?? (user ?? {}).username ?? null,
+          first_name:      data.user.first_name ?? (user ?? {}).first_name ?? null,
+          nickname:        data.user.nickname ?? (user ?? {}).nickname ?? null,
+          avatar_id:       data.user.redirect_to ?? 'telegram',
+          frame_id:        data.user.frame_id ?? 'rank',
+          badge_id:        data.user.badge_id ?? 'default',
         };
         setUser(fresh);
         try { localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(fresh)); } catch (_) {}
@@ -253,15 +267,39 @@ export function AuthProvider({ children }) {
   }, [token, refreshBalance]);
 
   useEffect(() => {
+    let cancelled = false;
     try {
       const telegramCtx = getTelegramLogContext();
       console.log('[Auth] Inicio. Desde Telegram:', telegramCtx.desdeTelegram, '| initData:', telegramCtx.initDataPresente);
     } catch (_) {}
-    if (token != null || loginAttempted.current) return;
-    if (isTelegramEnv() || isDevEnv()) {
-      loginAttempted.current = true;
-      login().catch((err) => console.error('[Auth] Error auto-login:', err?.message || err));
+
+    if (token != null) {
+      setAuthBootComplete(true);
+      return () => {
+        cancelled = true;
+      };
     }
+    if (!isTelegramEnv() && !isDevEnv()) {
+      setAuthBootComplete(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (loginAttempted.current) {
+      setAuthBootComplete(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+    loginAttempted.current = true;
+    login()
+      .catch((err) => console.error('[Auth] Error auto-login:', err?.message || err))
+      .finally(() => {
+        if (!cancelled) setAuthBootComplete(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, login]);
 
   /** Actualiza campos del usuario en memoria y localStorage sin hacer un login completo. */
@@ -274,6 +312,29 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  /** Actualiza los cosméticos (avatar, marco, badge) en el backend y sincroniza localmente. */
+  const updateCosmetics = useCallback(async (avatar_id, frame_id, badge_id) => {
+    if (!api) throw new Error('No hay cliente API');
+    try {
+      const body = {};
+      if (avatar_id !== undefined) body.avatar_id = avatar_id;
+      if (frame_id !== undefined) body.frame_id = frame_id;
+      if (badge_id !== undefined) body.badge_id = badge_id;
+      const data = await api.request('PATCH', '/auth/profile/cosmetics', { body });
+      if (data?.user) {
+        updateUser({
+          avatar_id: data.user.avatar_id,
+          frame_id: data.user.frame_id,
+          badge_id: data.user.badge_id,
+        });
+      }
+      return data;
+    } catch (err) {
+      console.error('[Auth] Error actualizando cosméticos:', err);
+      throw err;
+    }
+  }, [api, updateUser]);
+
   const isAuthenticated = !!token;
   const value = useMemo(
     () => ({
@@ -284,6 +345,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
       updateUser,
+      updateCosmetics,
       refreshUser,
       balance,
       balanceSubunits,
@@ -295,13 +357,17 @@ export function AuthProvider({ children }) {
       balanceError,
       transactionsLoading,
       transactionsError,
+      authBootComplete,
+      api,
     }),
     [
       user, token, isAuthenticated, isSyncingProfile,
-      login, logout, updateUser, refreshUser,
+      login, logout, updateUser, updateCosmetics, refreshUser,
       balance, balanceSubunits, refreshBalance, refreshWallet, transactions,
       authLoading, balanceLoading, balanceError,
       transactionsLoading, transactionsError,
+      authBootComplete,
+      api,
     ]
   );
 
@@ -313,3 +379,5 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+
+export { AuthContext };

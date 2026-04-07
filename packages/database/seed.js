@@ -15,12 +15,13 @@ async function runSeed() {
 
     const tester = await User.create({
       _id: 12345678,
-      username: 'TesterElPatio',
+      tg_firstName: 'TesterElPatio',
+      tg_username:  null,
       balance_subunits: 5000,
       ton_wallet: 'v4R2_test_address',
     });
 
-    console.log(`✅ ÉXITO: Usuario '${tester.username}' creado con ${tester.balance_subunits / 100} piedras.`);
+    console.log(`✅ ÉXITO: Usuario '${tester.tg_firstName}' creado con ${tester.balance_subunits / 100} piedras.`);
   } catch (error) {
     console.error('❌ ERROR en el seed:', error);
     process.exit(1);

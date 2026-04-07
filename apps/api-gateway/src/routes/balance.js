@@ -32,9 +32,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     res.json({
-      username: user.username,
-      piedras: user.piedras_display ?? Math.floor(user.balance_subunits / 100),
-      wallet: user.ton_wallet,
+      tg_firstName: user.tg_firstName ?? null,
+      tg_username:  user.tg_username ?? null,
+      username:     user.tg_username ?? null,
+      piedras:      user.piedras_display ?? Math.floor(user.balance_subunits / 100),
+      wallet:       user.ton_wallet,
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener balance' });

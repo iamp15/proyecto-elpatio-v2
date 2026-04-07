@@ -6,12 +6,20 @@ import { useAuth } from '../../../context/AuthContext';
 import { useGameSocket } from './useGameSocket';
 import DominoGame from './DominoGame';
 import GameOverModal from './components/GameOverModal';
+import OpponentAbandonWinBanner from './components/OpponentAbandonWinBanner';
 import MatchFoundOverlay from './components/MatchFoundOverlay';
 import GameOptionsModal from './components/GameOptionsModal';
 import DominoTile from './components/DominoTile';
 import './domino.css';
 import useGameSounds from './hooks/useGameSounds';
 import { triggerTurnNotification } from '../../../lib/telegram';
+import {
+  OPPONENT_ABANDON_ANNOUNCE_MS,
+  shouldShowOpponentAbandonAnnouncement,
+  getAbandonReason,
+  getAbandoningOpponentUserId,
+} from './utils/opponentAbandonAnnouncement';
+import { resolveDisplayName } from '../../../lib/userDisplayName';
 
 /**
  * Página del tablero de Dominó en /juegos/domino/:roomId.
@@ -46,22 +54,27 @@ export default function GameDominoBoardPage() {
   const [roundEndSequence,  setRoundEndSequence]  = useState(null);
   const [chatBubbles,       setChatBubbles]       = useState({});     // { [userId]: { type, content, id } }
   const [optionsOpen,       setOptionsOpen]       = useState(false);
+  const [abandonWinBanner, setAbandonWinBanner]  = useState(null);
   const roundOverlayVisibleRef = useRef(false);
   const pendingGameOverRef = useRef(null);
+  const forfeitAnnounceTimerRef = useRef(null);
+  const gameStateRef = useRef(null);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    return () => {
+      if (forfeitAnnounceTimerRef.current) {
+        clearTimeout(forfeitAnnounceTimerRef.current);
+        forfeitAnnounceTimerRef.current = null;
+      }
+    };
+  }, []);
   const previousTurnRef = useRef(null); // Para detectar cambio de turno
 
   const myUserId = user?.id ?? null;
-
-  /** Datos del jugador local para el PlayerProfileFrame. */
-  const myPlayer = user
-    ? {
-        name:      user.first_name ?? user.username ?? t('gameBoard.defaultPlayerName'),
-        avatarUrl: user.photo_url ?? null,
-        pr:        user.pr        ?? 1000,
-        rankColor: user.rank      ?? 'BRONCE',
-        badgeVariant: 'default',
-      }
-    : null;
 
   const handleRejoined = useCallback((payload) => {
     setGameState({ ...payload.state, players: payload.players ?? [] });
@@ -72,37 +85,43 @@ export default function GameDominoBoardPage() {
     // board > 0 = alguien ya jugó; hand < 7 = ya jugamos al menos una ficha.
     // Flag por roomId: evita mostrar Versus al reconectar cuando nadie ha jugado (state persistido).
     const versusKey = `domino-versus-shown-${roomId}`;
-    const alreadyShownForThisRoom = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(versusKey);
+    const alreadyShownForThisRoom =
+      typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(versusKey);
 
     const fromMatchmaking = location.state?.fromMatchmaking === true;
     const fromReconnect = location.state?.fromReconnect === true;
+    // Solo "en curso" si hay jugadas en tablero o mano parcial (alguien ya bajó fichas).
+    // hand [] o ausente al inicio NO debe activar el bypass (antes: (0 ?? 0) < 7 saltaba el versus).
+    const boardLen = payload.state?.board?.length ?? 0;
+    const hand = payload.state?.hand;
+    const handLen = Array.isArray(hand) ? hand.length : null;
     const gameAlreadyInProgress =
-      (payload.state?.board?.length ?? 0) > 0 ||
-      (payload.state?.hand?.length ?? 0) < 7;
+      boardLen > 0 ||
+      (handLen !== null && handLen > 0 && handLen < 7);
+    const blockVersusFromSession = alreadyShownForThisRoom && !fromMatchmaking;
 
     if (
       fromMatchmaking &&
       !fromReconnect &&
       !gameAlreadyInProgress &&
-      !alreadyShownForThisRoom &&
+      !blockVersusFromSession &&
       payload.players?.length >= 2
     ) {
       const me = payload.players.find((p) => p.userId === myUserId);
       const opponent = payload.players.find((p) => p.userId !== myUserId);
       setMatchOverlayData({
         playerMe: {
-          displayName: me?.displayName ?? user?.first_name ?? user?.username ?? t('gameBoard.you'),
+          displayName: me?.displayName ?? resolveDisplayName(user, t('gameBoard.you')),
           pr:          me?.pr ?? user?.pr ?? 1000,
           rank:        me?.rank ?? user?.rank,
         },
         playerOpponent: {
-          displayName: opponent?.displayName ?? t('gameBoard.rival'),
+          displayName: resolveDisplayName(opponent, t('gameBoard.rival')),
           pr:          opponent?.pr ?? 1000,
           rank:        opponent?.rank,
         },
       });
       setShowMatchOverlay(true);
-      try { sessionStorage.setItem(versusKey, '1'); } catch (_) {}
     } else {
       setShowMatchOverlay(false);
     }
@@ -132,18 +151,56 @@ export default function GameDominoBoardPage() {
     });
   }, [myUserId, sounds]);
 
-  const handleGameOver = useCallback((payload) => {
-    pendingGameOverRef.current = payload;
-    refreshBalance?.();
+  const presentGameOver = useCallback(
+    (payload) => {
+      pendingGameOverRef.current = null;
 
-    // Abandono u otros finales sin round_over final:
-    // mostrar modal inmediatamente.
-    if (!roundOverlayVisibleRef.current) {
-      try { sessionStorage.removeItem(`domino-versus-shown-${roomId}`); } catch (_) {}
-      setGameOver(payload);
-      setView('finished');
-    }
-  }, [refreshBalance, roomId]);
+      const finalize = () => {
+        try {
+          sessionStorage.removeItem(`domino-versus-shown-${roomId}`);
+        } catch (_) {}
+        setAbandonWinBanner(null);
+        setGameOver(payload);
+        setView('finished');
+      };
+
+      if (!shouldShowOpponentAbandonAnnouncement(payload, myUserId)) {
+        finalize();
+        return;
+      }
+
+      const players = gameStateRef.current?.players ?? [];
+      const oid = getAbandoningOpponentUserId(payload);
+      const ply = players.find((p) => String(p.userId) === String(oid));
+      const opponentName = resolveDisplayName(ply, t('gameBoard.rival'));
+
+      setAbandonWinBanner({
+        reason: getAbandonReason(payload),
+        opponentName,
+      });
+
+      if (forfeitAnnounceTimerRef.current) {
+        clearTimeout(forfeitAnnounceTimerRef.current);
+      }
+      forfeitAnnounceTimerRef.current = setTimeout(() => {
+        forfeitAnnounceTimerRef.current = null;
+        finalize();
+      }, OPPONENT_ABANDON_ANNOUNCE_MS);
+    },
+    [myUserId, roomId, t],
+  );
+
+  const handleGameOver = useCallback(
+    (payload) => {
+      pendingGameOverRef.current = payload;
+      refreshBalance?.();
+
+      if (!roundOverlayVisibleRef.current) {
+        presentGameOver(payload);
+      }
+    },
+    [refreshBalance, presentGameOver],
+  );
 
   const handlePRUpdated = useCallback(({ pr, rank }) => {
     updateUser({ pr, rank });
@@ -197,9 +254,7 @@ export default function GameDominoBoardPage() {
           roundOverlayVisibleRef.current = false;
 
           if (pendingGameOverRef.current) {
-            try { sessionStorage.removeItem(`domino-versus-shown-${roomId}`); } catch (_) {}
-            setGameOver(pendingGameOverRef.current);
-            setView('finished');
+            presentGameOver(pendingGameOverRef.current);
           }
         } else {
           // Ronda normal: Pasamos a la libreta
@@ -213,7 +268,7 @@ export default function GameDominoBoardPage() {
         }
       }, countingDuration); // Tiempo que dura la animación de conteo (más largo en tranca)
     }, 1200);
-  }, [roomId, sounds]);
+  }, [roomId, sounds, presentGameOver]);
 
   const handleAutoPlayAction = useCallback((payload) => {
     if (payload?.actionType === 'play_tile') sounds.playClack();
@@ -513,7 +568,7 @@ export default function GameDominoBoardPage() {
           <DominoGame
             gameState={gameState}
             myUserId={myUserId}
-            myPlayer={myPlayer}
+            viewerUser={user}
             onAction={handleAction}
             isGameOverModalVisible={!!gameOver}
             chatBubbles={chatBubbles}
@@ -527,7 +582,12 @@ export default function GameDominoBoardPage() {
         <MatchFoundOverlay
           playerMe={matchOverlayData.playerMe}
           playerOpponent={matchOverlayData.playerOpponent}
-          onAnimationComplete={() => setShowMatchOverlay(false)}
+          onAnimationComplete={() => {
+            try {
+              sessionStorage.setItem(`domino-versus-shown-${roomId}`, '1');
+            } catch (_) {}
+            setShowMatchOverlay(false);
+          }}
           duration={5000}
         />
       )}
@@ -563,12 +623,12 @@ export default function GameDominoBoardPage() {
                     const playerFromState = (gameState?.players ?? []).find(
                       (p) => String(p.userId) === String(uid),
                     );
-                    const playerName =
-                      playerFromState?.displayName ??
-                      playerFromState?.username ??
-                      (isMe
-                        ? myPlayer?.name || 'Tú'
-                        : 'Oponente');
+                    const playerName = resolveDisplayName(
+                      playerFromState,
+                      isMe
+                        ? resolveDisplayName(user, t('gameBoard.you'))
+                        : t('gameBoard.rival'),
+                    );
 
                     return (
                       <motion.div
@@ -663,12 +723,12 @@ export default function GameDominoBoardPage() {
                   const winnerPlayer = (gameState?.players ?? []).find(
                     (p) => String(p.userId) === String(winnerId),
                   );
-                  const winnerName =
-                    winnerPlayer?.displayName ??
-                    winnerPlayer?.username ??
-                    (winnerId === myUserId
-                      ? user?.first_name ?? user?.username ?? t('gameBoard.you')
-                      : t('gameBoard.rival'));
+                  const winnerName = resolveDisplayName(
+                    winnerPlayer,
+                    winnerId === myUserId
+                      ? resolveDisplayName(user, t('gameBoard.you'))
+                      : t('gameBoard.rival'),
+                  );
                   const isMeWinner = String(winnerId) === String(myUserId);
                   const colorClass = isMeWinner
                     ? 'text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.5)]'
@@ -721,20 +781,17 @@ export default function GameDominoBoardPage() {
 
               <div className="flex justify-between text-gray-800 text-xl">
                 <div className="flex flex-col items-center flex-1 border-r border-red-200">
-                  <span className="text-sm opacity-60">{user?.first_name ?? user?.username ?? t('gameBoard.you')}</span>
+                  <span className="text-sm opacity-60">{resolveDisplayName(user, t('gameBoard.you'))}</span>
                   <span className="text-3xl">{roundEndSequence.data.currentScores[myUserId] || 0}</span>
                 </div>
                 <div className="flex flex-col items-center flex-1">
                   <span className="text-sm opacity-60">
-                    {
+                    {resolveDisplayName(
                       (gameState?.players ?? []).find(
                         (p) => String(p.userId) !== String(myUserId),
-                      )?.displayName ??
-                      (gameState?.players ?? []).find(
-                        (p) => String(p.userId) !== String(myUserId),
-                      )?.username ??
-                      t('gameBoard.rival')
-                    }
+                      ),
+                      t('gameBoard.rival'),
+                    )}
                   </span>
                   <span className="text-3xl">
                     {
@@ -754,12 +811,12 @@ export default function GameDominoBoardPage() {
                     const winnerPlayer = (gameState?.players ?? []).find(
                       (p) => String(p.userId) === String(winnerId),
                     );
-                    const winnerName =
-                      winnerPlayer?.displayName ??
-                      winnerPlayer?.username ??
-                      (winnerId === myUserId
-                        ? user?.first_name ?? user?.username ?? t('gameBoard.you')
-                        : t('gameBoard.rival'));
+                    const winnerName = resolveDisplayName(
+                      winnerPlayer,
+                      winnerId === myUserId
+                        ? resolveDisplayName(user, t('gameBoard.you'))
+                        : t('gameBoard.rival'),
+                    );
                     return (
                       <>
                         {winnerName} +{roundEndSequence.data.pointsWon} {t('gameOverModal.pts')}
@@ -784,11 +841,18 @@ export default function GameDominoBoardPage() {
         onForfeit={handleForfeit}
       />
 
+      <OpponentAbandonWinBanner
+        visible={!!abandonWinBanner}
+        reason={abandonWinBanner?.reason ?? 'forfeit'}
+        opponentName={abandonWinBanner?.opponentName ?? ''}
+      />
+
       {view === 'finished' && gameOver && (
         <GameOverModal
           winnerId={gameOver.winnerId}
           myUserId={myUserId}
           prize_piedras={gameOver.prize_piedras}
+          systemMessage={gameOver.systemMessage ?? null}
           finalScores={gameOver.finalScores ?? {}}
           playerOrder={gameState?.playerOrder ?? []}
           players={gameState?.players ?? []}

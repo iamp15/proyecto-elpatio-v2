@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const timerManager = require('../utils/TimerManager');
 const telegramBotNotifier = require('../utils/telegramBotNotifier');
+const { finishDominoDisconnectForfeit } = require('./finishDominoDisconnectForfeit');
 
 /**
  * Estados posibles de una sala:
@@ -37,16 +38,20 @@ class Room {
     
     // Nuevas propiedades para manejo de desconexiones y timers
     this.disconnectedPlayers = new Map();   // userId -> timestamp desconexión
-    this.disconnectTimers = new Map();      // userId -> timerId (referencia a TimerManager)
+    this.disconnectTimers = new Map();      // userId -> timerId (forfeit 90s tras timeout de turno desconectado)
 
-    this.autoplayEnabled = new Map();       // userId -> boolean
-    
     // Estado de "Partida Suspendida" cuando todos los jugadores están desconectados
 
     this.allDisconnectedTimer = null;       // Timer para cuando TODOS se desconectan
 
     this.allDisconnectedSince = null;       // Timestamp cuando todos se desconectaron
     this.suspended = false;                 // Estado de "Partida Suspendida"
+
+    /** Tras la primera mano cerrada (round_over), el forfeit otorga pozo completo; si no, solo devolución propia. */
+    this.firstHandCompleted = false;
+
+    /** Contexto inyectado al iniciar partida (namespace + manager) para liquidar desconexión 90s. */
+    this.dominoLiveContext = null;
     
     // Registrar sala en TimerManager para limpieza automática
 
@@ -139,11 +144,9 @@ class Room {
     
     // Verificar si TODOS los jugadores están desconectados
     this._checkAllPlayersDisconnected();
-    
-    // Si NO estamos en estado suspendido y es el turno del jugador desconectado, iniciar timer de 90s
-    if (!this.suspended && this.game?.turn === userId) {
-      this.startDisconnectTimer(userId);
-    }
+
+    // El timer de forfeit (90s) y el autoplay se activan solo cuando expire el turno
+    // (~30s) y el jugador siga desconectado (ver namespace domino + checkTimeouts).
   }
 
   /**
@@ -155,8 +158,7 @@ class Room {
     // Limpiar estado de desconexión
     this.disconnectedPlayers.delete(userId);
     this.cancelDisconnectTimer(userId);
-    this.autoplayEnabled.delete(userId);
-    
+
     // Actualizar socket del jugador
     const player = this.players.find(p => p.userId === userId);
     if (player) {
@@ -169,18 +171,13 @@ class Room {
   }
 
   /**
-   * Inicia timer de 90 segundos para jugador desconectado
+   * Inicia el contador de 90s de abandono (tras autoplay por turno agotado estando desconectado).
    */
   startDisconnectTimer(userId) {
-    // Cancelar timer existente
     this.cancelDisconnectTimer(userId);
-    
-    // Notificar al jugador (stub del bot de Telegram)
+
     this.notifyPlayerDisconnected(userId);
-    
-    // Activar autoplay temporal
-    this.autoplayEnabled.set(userId, true);
-    
+
     // Crear timer con TimerManager - ASOCIADO AL ESTADO DE LA SALA
     const timerId = timerManager.setTimeout(
       () => {
@@ -210,7 +207,6 @@ class Room {
     if (timerId) {
       timerManager.clearTimeout(timerId);
       this.disconnectTimers.delete(userId);
-      this.autoplayEnabled.delete(userId);
       console.log(`[Room] Timer de desconexión cancelado para userId=${userId}, timerId=${timerId}`);
     }
   }
@@ -220,45 +216,31 @@ class Room {
    */
   handleDisconnectTimeout(userId) {
     if (this.status !== ROOM_STATUS.IN_GAME) return;
-    
+
     console.log(`[Room] Timeout de desconexión para userId=${userId} en sala ${this.roomId}`);
-    
-    // Limpiar timer
+
     this.disconnectTimers.delete(userId);
-    this.autoplayEnabled.delete(userId);
-    
-    // Determinar ganador (el otro jugador)
-    const winnerId = this.players.find(p => p.userId !== userId)?.userId;
-    
+
+    const winnerId = this.players.find((p) => p.userId !== userId)?.userId;
     if (!winnerId) {
       console.error(`[Room] No se pudo determinar ganador para timeout de desconexión userId=${userId}`);
       return;
     }
-    
-    // Finalizar partida con forfeit (esta función debe existir en otro archivo)
-    // this._processForfeit(userId, winnerId);
+
     console.log(`[Room] Forfeit por desconexión: userId=${userId}, ganador=${winnerId}`);
-    
-    // Notificar a los jugadores
-    this.players.forEach(player => {
-      player.socket?.emit('game_over', {
-        roomId: this.roomId,
-        forfeit: true,
-        disconnectedPlayerId: userId,
-        winnerId: winnerId,
-        message: 'Partida terminada por desconexión del oponente.'
-      });
+
+    void finishDominoDisconnectForfeit(this, userId).catch((err) => {
+      console.error(`[Room] Error liquidando forfeit por desconexión sala=${this.roomId}:`, err.message);
     });
-    
-    // Marcar sala como finalizada
-    this.status = ROOM_STATUS.FINISHED;
   }
 
   /**
    * Notificar al jugador desconectado via Telegram (stub)
    */
   notifyPlayerDisconnected(userId) {
-    const message = `⚠️ Es tu turno en la partida de dominó. Tienes 90 segundos para reconectar o el sistema jugará por ti.`;
+    const message =
+      `⚠️ Dominó: se agotó tu tiempo de turno sin conexión y el sistema jugó por ti. ` +
+      `Tienes 90 segundos para reconectar o perderás la partida por abandono.`;
     telegramBotNotifier.sendMessage(userId, message);
   }
 
@@ -298,10 +280,7 @@ class Room {
     for (const [userId] of this.disconnectTimers.entries()) {
       this.cancelDisconnectTimer(userId);
     }
-    
-    // Detener autoplay para todos
-    this.autoplayEnabled.clear();
-    
+
     // Iniciar timer de 90 segundos para partida suspendida
     this.allDisconnectedTimer = setTimeout(() => {
       this._handleSuspendedTimeout();
@@ -335,23 +314,11 @@ class Room {
    * Re-evaluar desconexiones individuales después de salir de estado suspendido
    */
   _reassessIndividualDisconnections() {
-    for (const [userId, disconnectTime] of this.disconnectedPlayers.entries()) {
-      const player = this.players.find(p => p.userId === userId);
-      
-      if (!player) continue;
-      
-      // Si el jugador sigue desconectado
-      if (!player.socket?.connected) {
-        // Si es su turno, iniciar timer individual
-        if (this.game?.turn === userId) {
-          this.startDisconnectTimer(userId);
-        }
-      } else {
-        // Jugador reconectó - limpiar estado
-        this.disconnectedPlayers.delete(userId);
-        this.cancelDisconnectTimer(userId);
-        this.autoplayEnabled.delete(userId);
-      }
+    for (const userId of this.disconnectedPlayers.keys()) {
+      const player = this.players.find((p) => p.userId === userId);
+      if (!player || !player.socket?.connected) continue;
+      this.disconnectedPlayers.delete(userId);
+      this.cancelDisconnectTimer(userId);
     }
   }
 
@@ -421,7 +388,6 @@ class Room {
       console.log(`[Room] Limpiando timer de desconexión userId=${userId}, timerId=${timerId}`);
     }
     this.disconnectTimers.clear();
-    this.autoplayEnabled.clear();
     this.disconnectedPlayers.clear();
     
     // 3. Resetear estado suspendido

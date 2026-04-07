@@ -3,15 +3,16 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { DominoSocketProvider } from './context/DominoSocketContext';
 import { AudioSettingsProvider } from './context/AudioSettingsContext';
+import SplashGate from './components/splash/SplashGate.jsx';
 import { expandWebApp } from './lib/telegram';
 import MainLayout from './components/layout/MainLayout';
-import Juegos from './pages/Juegos/Juegos';
+import Home from './pages/Home/Home';
 import LobbyDomino from './pages/Juegos/domino/LobbyDomino';
 import GameDominoBoardPage from './pages/Juegos/domino/GameDominoBoardPage';
-import Piedras from './pages/Piedras';
-import Wallet from './pages/Wallet/Wallet';
-import Settings from './pages/Settings/Settings';
+import Store from './pages/Store/Store';
+import Tournaments from './pages/Tournaments/Tournaments';
 import Profile from './pages/Profile/Profile';
+import Wallet from './pages/Wallet/Wallet';
 
 export default function App() {
   useEffect(() => {
@@ -28,17 +29,19 @@ export default function App() {
         }}
       >
         <DominoSocketProvider>
-        <Routes>
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Juegos />} />
-            <Route path="lobby-domino" element={<LobbyDomino />} />
-            <Route path="juegos/domino/:roomId" element={<GameDominoBoardPage />} />
-            <Route path="wallet" element={<Wallet />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="piedras" element={<Piedras />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
-        </Routes>
+          <SplashGate>
+            <Routes>
+              <Route path="/" element={<MainLayout />}>
+                <Route index element={<Home />} />
+                <Route path="ligas" element={<LobbyDomino />} />
+                <Route path="play" element={<GameDominoBoardPage />} />
+                <Route path="tienda" element={<Store />} />
+                <Route path="torneos" element={<Tournaments />} />
+                <Route path="perfil" element={<Profile />} />
+                <Route path="wallet" element={<Wallet />} />
+              </Route>
+            </Routes>
+          </SplashGate>
         </DominoSocketProvider>
       </BrowserRouter>
     </AuthProvider>

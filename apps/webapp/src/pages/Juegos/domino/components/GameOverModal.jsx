@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { resolveDisplayName } from '../../../../lib/userDisplayName';
 
 /**
  * Partícula de brillo para la animación de victoria.
@@ -66,6 +67,7 @@ export default function GameOverModal({
   players = [],
   prDelta = 0,
   currencyDelta = 0,
+  systemMessage = null,
   onLobby,
 }) {
   const { t } = useTranslation();
@@ -144,6 +146,22 @@ export default function GameOverModal({
               {isWinner ? '🏆' : '🎯'}
             </motion.div>
 
+            {systemMessage && (
+              <p
+                style={{
+                  margin:       0,
+                  fontSize:     '0.9rem',
+                  lineHeight:   1.35,
+                  color:        'var(--domino-text-muted)',
+                  textAlign:    'center',
+                  fontWeight:   500,
+                  maxWidth:     '100%',
+                }}
+              >
+                {systemMessage}
+              </p>
+            )}
+
             {/* Título */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -184,7 +202,7 @@ export default function GameOverModal({
                 <div className="flex justify-around items-center bg-black/30 p-4 rounded-lg mb-4">
                   <div className="text-center">
                     <p className="text-sm text-gray-300">
-                      {myPlayer?.displayName ?? myPlayer?.username ?? t('gameBoard.you')}
+                      {resolveDisplayName(myPlayer, t('gameBoard.you'))}
                     </p>
                     <p className="text-2xl font-bold text-white mt-1">
                       {finalScores[myUserId] ?? 0} {t('gameOverModal.pts')}
@@ -195,7 +213,7 @@ export default function GameOverModal({
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-300">
-                      {opponentPlayer?.displayName ?? opponentPlayer?.username ?? t('gameBoard.rival')}
+                      {resolveDisplayName(opponentPlayer, t('gameBoard.rival'))}
                     </p>
                     <p className="text-2xl font-bold text-white mt-1">
                       {opponentPlayer ? (finalScores[opponentPlayer.userId] ?? 0) : 0} {t('gameOverModal.pts')}

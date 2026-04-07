@@ -1,0 +1,87 @@
+.container {
+  padding: 20px;
+  min-height: 100vh;
+  background-color: #0d1117;
+  color: #ffffff;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 16px;
+  color: #8b949e;
+  margin-bottom: 32px;
+}
+
+.comingSoonContainer {
+  text-align: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(156, 39, 176, 0.1));
+  border-radius: 16px;
+  margin-bottom: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.comingSoonIcon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.comingSoonTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #ffffff;
+}
+
+.comingSoonText {
+  font-size: 15px;
+  color: #c9d1d9;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.featureCard {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-4px);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.featureIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.featureTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.featureDescription {
+  font-size: 13px;
+  color: #8b949e;
+  line-height: 1.4;
+}

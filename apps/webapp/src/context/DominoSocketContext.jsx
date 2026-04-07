@@ -5,10 +5,12 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
 } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { useSplashPhase } from './SplashPhaseContext';
 import { attachDominoSocketHeartbeat } from '../pages/Juegos/domino/attachDominoSocketHeartbeat';
 
 const GAME_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL || 'http://localhost:3001';
@@ -20,18 +22,50 @@ const DominoSocketContext = createContext(null);
  */
 export function DominoSocketProvider({ children }) {
   const { token } = useAuth();
+  const { phase } = useSplashPhase();
   const navigate = useNavigate();
+  const location = useLocation();
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   /** null = aún no llegó init_lobby_config */
   const [lobbyServerCategories, setLobbyServerCategories] = useState(null);
+  const [pendingReconnectRoomId, setPendingReconnectRoomId] = useState(null);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const lobbyConfigWaitersRef = useRef(null);
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
+  const pathnameRef = useRef(location.pathname);
+  pathnameRef.current = location.pathname;
+
+  useEffect(() => {
+    if (lobbyServerCategories !== null && lobbyConfigWaitersRef.current) {
+      const resolve = lobbyConfigWaitersRef.current;
+      lobbyConfigWaitersRef.current = null;
+      resolve();
+    }
+  }, [lobbyServerCategories]);
+
+  const waitForLobbyConfig = useCallback(() => {
+    if (lobbyServerCategories !== null) return Promise.resolve();
+    return new Promise((resolve) => {
+      lobbyConfigWaitersRef.current = resolve;
+    });
+  }, [lobbyServerCategories]);
+
+  const clearPendingReconnect = useCallback(() => {
+    setPendingReconnectRoomId(null);
+  }, []);
 
   useEffect(() => {
     if (!token) {
       setLobbyServerCategories(null);
+      setPendingReconnectRoomId(null);
+      if (lobbyConfigWaitersRef.current) {
+        lobbyConfigWaitersRef.current();
+        lobbyConfigWaitersRef.current = null;
+      }
       setConnected(false);
       setReconnecting(false);
       setSocket(null);
@@ -64,7 +98,17 @@ export function DominoSocketProvider({ children }) {
     const onReconnectGame = (payload) => {
       const id = payload?.roomId;
       if (!id) return;
-      navigateRef.current(`/juegos/domino/${id}`, {
+      const targetPath = `/juegos/domino/${id}`;
+      // No pisar la ruta si ya estamos en la mesa (p. ej. acabas de entrar con fromMatchmaking
+      // para el versus; un reconnect_game del handshake no debe borrar ese state).
+      if (pathnameRef.current === targetPath) {
+        return;
+      }
+      if (phaseRef.current === 'splash') {
+        setPendingReconnectRoomId(String(id));
+        return;
+      }
+      navigateRef.current(targetPath, {
         replace: true,
         state: { fromReconnect: true },
       });
@@ -100,8 +144,19 @@ export function DominoSocketProvider({ children }) {
       connected,
       reconnecting,
       lobbyServerCategories,
+      pendingReconnectRoomId,
+      clearPendingReconnect,
+      waitForLobbyConfig,
     }),
-    [socket, connected, reconnecting, lobbyServerCategories],
+    [
+      socket,
+      connected,
+      reconnecting,
+      lobbyServerCategories,
+      pendingReconnectRoomId,
+      clearPendingReconnect,
+      waitForLobbyConfig,
+    ],
   );
 
   return (

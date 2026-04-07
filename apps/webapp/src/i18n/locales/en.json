@@ -45,6 +45,12 @@
     "noConnection": "No connection — reconnecting…",
     "gameCancelled": "The match was cancelled."
   },
+  "forfeitWinAnnouncement": {
+    "kicker": "Victory",
+    "titleDisconnect": "{{name}} disconnected",
+    "titleForfeit": "{{name}} left the game",
+    "subtitle": "You win by forfeit. Loading results…"
+  },
   "roundOverOverlay": {
     "handWon": "HAND WON!",
     "handLost": "HAND LOST",
@@ -135,12 +141,6 @@
     "viewProfile": "View profile",
     "viewWallet": "View wallet"
   },
-  "tabBar": {
-    "games": "Games",
-    "wallet": "Wallet",
-    "settings": "Settings",
-    "navLabel": "Main navigation"
-  },
   "profile": {
     "title": "Profile"
   },
@@ -184,5 +184,21 @@
     "lets_go": "Let's go!",
     "close_one": "Oof, close one",
     "well_played": "Well played!"
+  },
+  "home": {
+    "welcome": "Welcome to El Patio Dominó",
+    "subtitle": "The ultimate domino experience. Play, compete, and climb the ranks.",
+    "cards": {
+      "leagues": "Leagues",
+      "leaguesSubtitle": "Compete in ranked matches",
+      "tournaments": "Tournaments",
+      "tournamentsSubtitle": "Join special events",
+      "store": "Shop",
+      "storeSubtitle": "Get stones and cosmetics",
+      "profile": "Profile",
+      "profileSubtitle": "View stats and inventory"
+    },
+    "infoTitle": "About El Patio Dominó",
+    "infoText": "An exclusive domino game where strategy meets competition. Earn stones, unlock cosmetics, and prove you're the best at the table."
   }
 }

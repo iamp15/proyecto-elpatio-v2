@@ -1,59 +1,25 @@
-const { createTransaction, User } = require('@el-patio/database');
-const { calculatePRGain } = require('./calculatePRGain');
+const { runDominoSettlement, User } = require('@el-patio/database');
 const configManager = require('../config/ConfigManager');
 
+const MSG_WIN_FORFEIT =
+  'Tu rival ha huido de la batalla. Victoria por abandono.';
+const MSG_LOSS_FORFEIT = 'Has perdido la partida por abandono.';
+
 /**
- * Calcula y persiste los cambios de PR para todos los jugadores de la sala
- * tras finalizar una partida. Emite 'pr_updated' por socket a cada jugador.
+ * Cierra la partida: liquidación atómica (Piedras + PR) e idempotente por sala/tipo,
+ * luego emite sockets y marca la sala como finalizada.
  *
  * @param {import('./Room').Room} room
  * @param {number} winnerId
- * @returns {Promise<{ winnerGain: number, loserLoss: number }>}
+ * @param {import('socket.io').Namespace} nsp
+ * @param {object} finalScores
+ * @param {object} [forfeitMeta]
+ * @param {boolean} [forfeitMeta.forfeit]
+ * @param {number} [forfeitMeta.forfeitingUserId]
+ * @param {number} [forfeitMeta.disconnectedPlayerId]
  */
-async function updatePRAfterGame(room, winnerId) {
-  const winnerPlayer = room.players.find((p) => p.userId === winnerId);
-  const loserPlayers = room.players.filter((p) => p.userId !== winnerId);
-
-  if (!winnerPlayer || loserPlayers.length === 0) return { winnerGain: 0, loserLoss: 0 };
-
-  const [winnerUser, ...loserUsers] = await Promise.all([
-    User.findById(winnerId).lean(),
-    ...loserPlayers.map((p) => User.findById(p.userId).lean()),
-  ]);
-
-  const winnerCurrentPR = winnerUser?.pr ?? 1000;
-  const avgLoserPR = loserUsers.reduce((sum, u) => sum + (u?.pr ?? 1000), 0) / loserUsers.length;
-
-  const prGain = calculatePRGain(winnerCurrentPR, avgLoserPR);
-
-  const newWinnerPR   = winnerCurrentPR + prGain;
-  const newWinnerRank = configManager.getRankForPR('domino', newWinnerPR);
-
-  await User.findByIdAndUpdate(winnerId, { pr: newWinnerPR, rank: newWinnerRank });
-  winnerPlayer.socket.emit('pr_updated', {
-    pr:   newWinnerPR,
-    rank: newWinnerRank,
-    gain: +prGain,
-  });
-
-  for (let i = 0; i < loserPlayers.length; i++) {
-    const loserPlayer  = loserPlayers[i];
-    const loserCurrentPR = loserUsers[i]?.pr ?? 1000;
-    const newLoserPR   = Math.max(0, loserCurrentPR - prGain);
-    const newLoserRank = configManager.getRankForPR('domino', newLoserPR);
-
-    await User.findByIdAndUpdate(loserPlayer.userId, { pr: newLoserPR, rank: newLoserRank });
-    loserPlayer.socket.emit('pr_updated', {
-      pr:   newLoserPR,
-      rank: newLoserRank,
-      gain: -prGain,
-    });
-  }
-
-  return { winnerGain: prGain, loserLoss: prGain };
-}
-
-async function handleGameOver(room, winnerId, nsp, finalScores = {}) {
+async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta = {}) {
+  void nsp;
   const winnerPlayer = room.players.find((p) => p.userId === winnerId);
   if (!winnerPlayer) {
     throw Object.assign(
@@ -62,39 +28,104 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}) {
     );
   }
 
+  const loserPlayers = room.players.filter((p) => p.userId !== winnerId);
   const { entryFee_subunits, maxPlayers } = room.config;
-  const totalPot_subunits   = entryFee_subunits * maxPlayers;
-  const prize_subunits      = Math.floor(totalPot_subunits * 0.8);
+  const totalPot_subunits = entryFee_subunits * maxPlayers;
+
+  const forfeit = Boolean(forfeitMeta.forfeit);
+  /** Anti-fraude: sin primera mano cerrada, solo se devuelve la propia apuesta al ganador. */
+  const earlyForfeit = forfeit && !room.firstHandCompleted;
+
+  let prize_subunits;
+  let settlementKind;
+
+  if (earlyForfeit) {
+    prize_subunits = entryFee_subunits;
+    settlementKind = 'forfeit_early';
+  } else if (forfeit) {
+    /** Caso B: abandono tras al menos una mano — pozo completo (ambas apuestas), sin fraude por matchmaking. */
+    prize_subunits = totalPot_subunits;
+    settlementKind = 'forfeit_full';
+  } else {
+    prize_subunits = Math.floor(totalPot_subunits * 0.8);
+    settlementKind = 'normal';
+  }
+
   const commission_subunits = totalPot_subunits - prize_subunits;
+  const commission_pct =
+    totalPot_subunits > 0
+      ? Math.round((commission_subunits / totalPot_subunits) * 100)
+      : 0;
 
-  const tx = await createTransaction({
-    userId:                winnerId,
-    amount_subunits:       prize_subunits,
-    type:                  'WIN',
-    reference_external_id: room.roomId,
+  const settlementRef = `${room.roomId}:domino:${settlementKind}`;
+
+  const result = await runDominoSettlement({
+    settlementRef,
+    winnerId,
+    loserUserIds: loserPlayers.map((p) => Number(p.userId)),
+    winnerPayoutSubunits: prize_subunits,
+    getRankForPR: (pr) => configManager.getRankForPR('domino', pr),
   });
 
-  winnerPlayer.socket.emit('balance_updated', {
-    balance_subunits: tx.balance_after_subunits,
-    piedras:          tx.balance_after_subunits / 100,
-  });
+  if (result.idempotent) {
+    console.warn(`[handleGameOver] Liquidación ya existía (${settlementRef}), sin duplicar movimientos.`);
+  } else {
+    const wUser = await User.findById(winnerId).lean();
+    if (wUser) {
+      winnerPlayer.socket?.emit('balance_updated', {
+        balance_subunits: wUser.balance_subunits,
+        piedras: wUser.balance_subunits / 100,
+      });
+      winnerPlayer.socket?.emit('pr_updated', {
+        pr: wUser.pr,
+        rank: wUser.rank,
+        gain: result.winnerPrGain,
+      });
+    }
 
-  const { winnerGain, loserLoss } = await updatePRAfterGame(room, winnerId);
+    for (const lp of loserPlayers) {
+      const lu = await User.findById(lp.userId).lean();
+      if (!lu) continue;
+      lp.socket?.emit('pr_updated', {
+        pr: lu.pr,
+        rank: lu.rank,
+        gain: -result.loserPrLoss,
+      });
+    }
+  }
 
   room.finish();
 
-  nsp.to(room.roomId).emit('game_over', {
-    roomId:             room.roomId,
+  const basePayload = {
+    roomId: room.roomId,
     winnerId,
     prize_subunits,
-    prize_piedras:      prize_subunits / 100,
+    prize_piedras: prize_subunits / 100,
     commission_subunits,
-    commission_pct:     20,
+    commission_pct,
     finalScores,
     prChanges: {
-      winnerGain,
-      loserLoss,
+      winnerGain: result.winnerPrGain,
+      loserLoss: result.loserPrLoss,
     },
+    forfeit,
+    forfeitingUserId: forfeitMeta.forfeitingUserId ?? null,
+    disconnectedPlayerId: forfeitMeta.disconnectedPlayerId ?? null,
+    forfeitEarlyAbandon: earlyForfeit,
+    settlementRef,
+  };
+
+  room.players.forEach((p) => {
+    const isWinner = Number(p.userId) === Number(winnerId);
+    const systemMessage = forfeit
+      ? isWinner
+        ? MSG_WIN_FORFEIT
+        : MSG_LOSS_FORFEIT
+      : null;
+    p.socket?.emit('game_over', {
+      ...basePayload,
+      systemMessage,
+    });
   });
 }
 
