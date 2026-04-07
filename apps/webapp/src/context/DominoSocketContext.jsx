@@ -98,7 +98,7 @@ export function DominoSocketProvider({ children }) {
     const onReconnectGame = (payload) => {
       const id = payload?.roomId;
       if (!id) return;
-      const targetPath = `/juegos/domino/${id}`;
+      const targetPath = `/play/${id}`;
       // No pisar la ruta si ya estamos en la mesa (p. ej. acabas de entrar con fromMatchmaking
       // para el versus; un reconnect_game del handshake no debe borrar ese state).
       if (pathnameRef.current === targetPath) {

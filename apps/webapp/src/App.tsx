@@ -34,7 +34,7 @@ export default function App() {
               <Route path="/" element={<MainLayout />}>
                 <Route index element={<Home />} />
                 <Route path="ligas" element={<LobbyDomino />} />
-                <Route path="play" element={<GameDominoBoardPage />} />
+                <Route path="play/:roomId" element={<GameDominoBoardPage />} />
                 <Route path="tienda" element={<Store />} />
                 <Route path="torneos" element={<Tournaments />} />
                 <Route path="perfil" element={<Profile />} />

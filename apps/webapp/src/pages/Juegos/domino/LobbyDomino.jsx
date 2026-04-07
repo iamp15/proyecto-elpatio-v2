@@ -534,7 +534,7 @@ export default function LobbyDomino() {
     };
 
     const onGameStart = (payload) => {
-      navigateRef.current(`/juegos/domino/${payload.roomId}`, { state: { fromMatchmaking: true } });
+      navigateRef.current(`/play/${payload.roomId}`, { state: { fromMatchmaking: true } });
     };
 
     const onPrUpdated = ({ pr, rank }) => {

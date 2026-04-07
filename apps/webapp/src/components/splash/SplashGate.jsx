@@ -46,7 +46,7 @@ export default function SplashGate({ children }) {
   useEffect(() => {
     if (phase !== 'ready') return;
     if (!pendingReconnectRoomId) return;
-    navigate(`/juegos/domino/${pendingReconnectRoomId}`, {
+    navigate(`/play/${pendingReconnectRoomId}`, {
       replace: true,
       state: { fromReconnect: true },
     });

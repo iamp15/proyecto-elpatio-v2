@@ -22,7 +22,7 @@ import {
 import { resolveDisplayName } from '../../../lib/userDisplayName';
 
 /**
- * Página del tablero de Dominó en /juegos/domino/:roomId.
+ * Página del tablero de Dominó en /play/:roomId.
  *
  * Resiliente a recargas y desconexiones:
  *   Al montar, useGameSocket emite rejoin_room(roomId) automáticamente.

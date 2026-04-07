@@ -12,7 +12,7 @@ import {
 const BACK_BUTTON_CLICKED_EVENT = 'backButtonClicked';
 
 const HOME_ROUTE = '/';
-const PLAY_ROUTE = '/play';
+const PLAY_ROUTE_PREFIX = '/play/';
 
 const SECONDARY_ROUTES = new Set(['/ligas', '/tienda', '/torneos', '/perfil']);
 
@@ -30,7 +30,7 @@ export default function useTelegramBackButton() {
 
   useEffect(() => {
     const isHome = location.pathname === HOME_ROUTE;
-    const isPlay = location.pathname === PLAY_ROUTE;
+    const isPlay = location.pathname.startsWith(PLAY_ROUTE_PREFIX);
     const isSecondaryRoute = SECONDARY_ROUTES.has(location.pathname);
 
     if (isHome || isPlay) {

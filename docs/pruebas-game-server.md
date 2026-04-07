@@ -223,7 +223,7 @@ console.log(`[test] Socket guardado en window._testSocket (userId=${TEST_USER_ID
 
 ## 3b. Script — Terminar partida desde la UI (script autónomo)
 
-> **Cuándo usarlo:** cuando estás en la página `/juegos/domino/:roomId` de la webapp y quieres
+> **Cuándo usarlo:** cuando estás en la página `/play/:roomId` de la webapp y quieres
 > declararte ganador sin jugar la partida completa.
 >
 > Lee el token y el userId directamente de `localStorage`, y el roomId de la URL.
@@ -232,7 +232,7 @@ console.log(`[test] Socket guardado en window._testSocket (userId=${TEST_USER_ID
 ```javascript
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║  SCRIPT 3b — Terminar partida (declararse ganador desde la UI)          ║
-// ║  Pega esto en la consola del navegador estando en /juegos/domino/:roomId║
+// ║  Pega esto en la consola del navegador estando en /play/:roomId          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 // ── 1) Leer credenciales de la sesión activa ─────────────────────────────────
@@ -245,7 +245,7 @@ if (!token || !userId) {
   throw new Error('Sin sesión');
 }
 
-// ── 2) Leer roomId de la URL (/juegos/domino/:roomId) ────────────────────────
+// ── 2) Leer roomId de la URL (/play/:roomId) ────────────────────────────────
 const roomId = window.location.pathname.split('/').pop();
 if (!roomId || roomId.length < 10) {
   console.error('[finish] ❌ No se detectó un roomId válido en la URL:', window.location.pathname);
