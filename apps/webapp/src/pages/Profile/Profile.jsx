@@ -1,47 +1,15 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthContext } from '../../context/AuthContext';
+import { useInventory } from '../../context/InventoryContext';
 import PlayerAvatar from '../../components/PlayerAvatar';
+import BackHomeButton from '../../components/navigation/BackHomeButton';
 import PlayerBadge from '../Juegos/domino/components/PlayerBadge';
-import { Lock, Save, Loader } from 'lucide-react';
+import { ITEM_CATALOG } from '../../lib/inventory/itemCatalog';
+import { Save, Loader } from 'lucide-react';
 import '../Juegos/domino/domino.css';
 import styles from './Profile.module.css';
-
-// Simulación de catálogo de items (luego vendrá del backend)
-const CATALOG = {
-  avatars: [
-    { id: 'telegram', name: 'Foto de Telegram', unlocked: true },
-    { id: 'default', name: 'Iniciales con gradiente', unlocked: true },
-    { id: 'vip_gold', name: 'Avatar VIP Dorado', unlocked: false },
-    { id: 'halloween', name: 'Avatar de Halloween', unlocked: false },
-  ],
-  frames: [
-    { id: 'rank', name: 'Marco de Liga', unlocked: true },
-    { id: 'vip_gold', name: 'Marco VIP Dorado', unlocked: false },
-    { id: 'vip_silver', name: 'Marco VIP Plateado', unlocked: false },
-    { id: 'diamond_sparkle', name: 'Marco Diamante', unlocked: false },
-    { id: 'gold_sparkle', name: 'Marco Oro Brillante', unlocked: false },
-    { id: 'halloween_frame', name: 'Marco de Calabaza', unlocked: false },
-  ],
-  badges: [
-    { id: 'default', name: 'Estrella', unlocked: true },
-    { id: 'vip', name: 'Corona› VIP', unlocked: false },
-    { id: 'torneo', name: 'Rayo› de Torneo', unlocked: false },
-    { id: 'fundador', name: 'Escudo› de Fundador', unlocked: false },
-    { id: 'winner', name: 'Trofeo› de Ganador', unlocked: false },
-    { id: 'streak', name: 'Llama› de Racha', unlocked: false },
-  ],
-};
-
-// Mapa de variantes de badge para IDs del catálogo
-const BADGE_VARIANT_MAP = {
-  default: 'default',
-  vip: 'vip',
-  torneo: 'torneo',
-  fundador: 'fundador',
-  winner: 'default',
-  streak: 'default',
-};
 
 const TABS = [
   { id: 'avatars', label: 'Foto' },
@@ -49,17 +17,27 @@ const TABS = [
   { id: 'badges', label: 'Badge' },
 ];
 
+const TAB_TO_SUBTYPE = {
+  avatars: 'avatar_photo',
+  frames: 'avatar_frame',
+  badges: 'profile_badge',
+};
+
 export default function Profile() {
   const { t } = useTranslation();
-  const { user, updateUser, updateCosmetics, api } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const { user, updateUser, api } = useContext(AuthContext);
+  const {
+    inventory,
+    inventoryLoading,
+    inventoryError,
+    handleEquipItem,
+  } = useInventory();
   const [activeTab, setActiveTab] = useState('avatars');
   const [nickname, setNickname] = useState(user?.nickname || '');
-  const [avatarId, setAvatarId] = useState(user?.avatar_id || 'telegram');
-  const [frameId, setFrameId] = useState(user?.frame_id || 'rank');
-  const [badgeId, setBadgeId] = useState(user?.badge_id || 'default');
-  const [catalog, setCatalog] = useState(CATALOG);
-  const [unlockedItems, setUnlockedItems] = useState({ avatars: [], frames: [], badges: [] });
-  const [loading, setLoading] = useState(false);
+  const [avatarId, setAvatarId] = useState(user?.avatar_id || 'avatar_default');
+  const [frameId, setFrameId] = useState(user?.frame_id || 'frame_bronce');
+  const [badgeId, setBadgeId] = useState(user?.badge_id || 'badge_bronce');
   const [saveLoading, setSaveLoading] = useState(false);
   const [nicknameCheckLoading, setNicknameCheckLoading] = useState(false);
   /** null = sin comprobar aún o el texto cambió; 'available' | 'unavailable' tras comprobar */
@@ -67,34 +45,42 @@ export default function Profile() {
   const [nicknameError, setNicknameError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Cargar catálogo real y items desbloqueados desde backend
-  useEffect(() => {
-    const fetchCosmetics = async () => {
-      if (!api) return;
-      setLoading(true);
-      try {
-        const data = await api.request('GET', '/auth/profile/cosmetics');
-        setUnlockedItems(data.unlocked);
-        setAvatarId(data.selected.avatar_id);
-        setFrameId(data.selected.frame_id);
-        setBadgeId(data.selected.badge_id);
-      } catch (err) {
-        console.warn('No se pudo cargar catálogo de cosméticos:', err);
-        // Mantener catálogo simulado
-      } finally {
-        setLoading(false);
-      }
+  const cosmeticsBySubType = useMemo(() => {
+    const out = {
+      avatar_photo: [],
+      avatar_frame: [],
+      profile_badge: [],
     };
-    fetchCosmetics();
-  }, [api]);
 
-  // Determinar qué items están desbloqueados según la respuesta del backend
-  const isItemUnlocked = (category, itemId) => {
-    if (category === 'avatars') return unlockedItems.avatars.includes(itemId);
-    if (category === 'frames') return unlockedItems.frames.includes(itemId);
-    if (category === 'badges') return unlockedItems.badges.includes(itemId);
-    return false;
-  };
+    for (const item of inventory) {
+      if (item.category !== 'cosmetic') continue;
+      if (!out[item.subType]) continue;
+      out[item.subType].push(item);
+    }
+
+    return out;
+  }, [inventory]);
+
+  const equippedBySubType = useMemo(() => {
+    const out = {};
+    for (const [subType, itemsByType] of Object.entries(cosmeticsBySubType)) {
+      out[subType] = itemsByType.find((item) => item.isEquipped)?.id ?? null;
+    }
+    return out;
+  }, [cosmeticsBySubType]);
+
+  useEffect(() => {
+    setAvatarId(equippedBySubType.avatar_photo || user?.avatar_id || 'avatar_default');
+    setFrameId(equippedBySubType.avatar_frame || user?.frame_id || 'frame_bronce');
+    setBadgeId(equippedBySubType.profile_badge || user?.badge_id || 'badge_bronce');
+  }, [
+    equippedBySubType.avatar_photo,
+    equippedBySubType.avatar_frame,
+    equippedBySubType.profile_badge,
+    user?.avatar_id,
+    user?.frame_id,
+    user?.badge_id,
+  ]);
 
   // Construir objeto user para PlayerAvatar
   const previewUser = {
@@ -157,17 +143,21 @@ export default function Profile() {
   };
 
   const handleItemSelect = (category, itemId) => {
-    if (!isItemUnlocked(category, itemId)) return;
     if (category === 'avatars') setAvatarId(itemId);
     if (category === 'frames') setFrameId(itemId);
     if (category === 'badges') setBadgeId(itemId);
   };
 
   const handleSaveChanges = async () => {
-    const changedCosmetics =
-      avatarId !== user?.avatar_id ||
-      frameId !== user?.frame_id ||
-      badgeId !== user?.badge_id;
+    const currentAvatarId = equippedBySubType.avatar_photo || user?.avatar_id;
+    const currentFrameId = equippedBySubType.avatar_frame || user?.frame_id;
+    const currentBadgeId = equippedBySubType.profile_badge || user?.badge_id;
+    const cosmeticChanges = [
+      avatarId && avatarId !== currentAvatarId ? avatarId : null,
+      frameId && frameId !== currentFrameId ? frameId : null,
+      badgeId && badgeId !== currentBadgeId ? badgeId : null,
+    ].filter(Boolean);
+    const changedCosmetics = cosmeticChanges.length > 0;
     const changedNickname = nickname.trim() !== (user?.nickname || '');
 
     if (!changedCosmetics && !changedNickname) {
@@ -178,13 +168,10 @@ export default function Profile() {
     setSaveLoading(true);
     setSuccessMessage('');
     try {
-      // Actualizar cosméticos
       if (changedCosmetics) {
-        await updateCosmetics(
-          avatarId,
-          frameId,
-          badgeId,
-        );
+        for (const itemId of cosmeticChanges) {
+          await handleEquipItem(itemId);
+        }
       }
       if (changedNickname) {
         const data = await api.request('PATCH', '/auth/nickname', {
@@ -209,14 +196,17 @@ export default function Profile() {
     }
   };
 
-  // Filtrar badges
-  const items = activeTab === 'badges'
-    ? catalog.badges
-    : catalog[activeTab] || [];
+  const activeSubType = TAB_TO_SUBTYPE[activeTab];
+  const items = cosmeticsBySubType[activeSubType] || [];
 
   return (
     <div className={`domino-lobby ${styles.root}`}>
-      <h1 className={styles.title}>{t('profile.title')}</h1>
+      <div className={styles.titleRow}>
+        <h1 className={styles.title}>{t('profile.title')}</h1>
+        <button type="button" className={styles.backpackLink} onClick={() => navigate('/backpack')}>
+          Mochila
+        </button>
+      </div>
 
       <div className={styles.grid}>
         {/* --- Columna izquierda: Vista previa --- */}
@@ -232,12 +222,6 @@ export default function Profile() {
                 showNameLabel
               />
             </div>
-          </div>
-          <div className={styles.previewCaption}>
-            <p>Tu identidad se verá así en partidas y perfiles.</p>
-            <p className={styles.previewMeta}>
-              Avatar: {avatarId} | Marco: {frameId} | Badge: {badgeId}
-            </p>
           </div>
         </div>
 
@@ -259,16 +243,21 @@ export default function Profile() {
 
           {/* Carrusel de items */}
           <div className={styles.carousel}>
-            {loading ? (
+            {inventoryLoading ? (
               <div className={styles.carouselLoading}>
                 <Loader className={styles.spinner} />
               </div>
+            ) : inventoryError ? (
+              <p className={styles.errorText}>{inventoryError}</p>
+            ) : items.length === 0 ? (
+              <p className={styles.hintBox}>No tienes cosméticos de este tipo en tu mochila.</p>
             ) : (
               <>
 
                 <div className={styles.itemGrid}>
                   {items.map((item) => {
-                    const unlocked = isItemUnlocked(activeTab, item.id);
+                    const meta = ITEM_CATALOG[item.id];
+                    const iconUrl = item.iconUrl || meta?.iconUrl;
                     const selected =
                       (activeTab === 'avatars' && avatarId === item.id) ||
                       (activeTab === 'frames' && frameId === item.id) ||
@@ -278,25 +267,23 @@ export default function Profile() {
                         key={item.id}
                         type="button"
                         onClick={() => handleItemSelect(activeTab, item.id)}
-                        disabled={!unlocked}
-                        className={`${styles.itemBtn} ${selected ? styles.itemBtnSelected : ''} ${!unlocked ? styles.itemBtnLocked : ''}`}
+                        className={`${styles.itemBtn} ${selected ? styles.itemBtnSelected : ''}`}
                       >
-                        {!unlocked && (
-                          <div className={styles.lockIcon}>
-                            <Lock size={14} />
-                          </div>
+                        {activeTab === 'avatars' && iconUrl && (
+                          <img src={iconUrl} alt="" className={styles.avatarThumb} draggable={false} />
                         )}
-                        {activeTab === 'avatars' && <div className={styles.avatarThumb} />}
-                        {activeTab === 'frames' && <div className={styles.frameThumb} />}
+                        {activeTab === 'frames' && iconUrl && (
+                          <img src={iconUrl} alt="" className={styles.frameThumb} draggable={false} />
+                        )}
                         {activeTab === 'badges' && (
                           <div className={styles.badgeThumbWrap}>
                             <PlayerBadge
-                              variant={BADGE_VARIANT_MAP[item.id] || 'default'}
-                              color={user?.rank || 'gray'}
+                              iconUrl={iconUrl}
+                              alt={item.name}
                             />
                           </div>
                         )}
-                        <span className={styles.itemLabel}>{item.name}</span>
+                        <span className={styles.itemLabel}>{item.name || meta?.name || item.id}</span>
                       </button>
                     );
                   })}
@@ -304,15 +291,6 @@ export default function Profile() {
               </>
             )}
           </div>
-
-          {items.some((item) => !isItemUnlocked(activeTab, item.id)) && (
-            <div className={styles.hintBox}>
-              <p>
-                <Lock size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-                Los items bloqueados se desbloquean alcanzando rangos, siendo VIP o completando logros.
-              </p>
-            </div>
-          )}
 
           <div className={styles.panel}>
             <h3 className={styles.panelTitle}>Nickname</h3>
@@ -382,6 +360,7 @@ export default function Profile() {
           </div>
         </div>
       </div>
+      <BackHomeButton />
     </div>
   );
 }

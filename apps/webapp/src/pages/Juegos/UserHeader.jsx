@@ -5,6 +5,7 @@ import { triggerHaptic } from '../../lib/telegram';
 import balanceIcon from '../../assets/icono-piedras-2.png';
 import PlayerAvatar from '../../components/PlayerAvatar';
 import { resolveDisplayName } from '../../lib/userDisplayName';
+import { isVipUser, vipDisplayNameStyleOnDark } from '../../lib/vipUserUi';
 import styles from './UserHeader.module.css';
 
 export default function UserHeader() {
@@ -35,7 +36,14 @@ export default function UserHeader() {
       </button>
 
       <span className={styles.greeting}>
-        {t('userHeader.helloPrefix')}<span className={styles.name}>{displayName}</span>{t('userHeader.helloSuffix')}
+        {t('userHeader.helloPrefix')}
+        <span
+          className={styles.name}
+          style={isVipUser(user) ? vipDisplayNameStyleOnDark() : undefined}
+        >
+          {displayName}
+        </span>
+        {t('userHeader.helloSuffix')}
       </span>
 
       <button

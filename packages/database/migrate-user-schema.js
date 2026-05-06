@@ -18,13 +18,11 @@ const DEFAULTS = {
   pr:           1000,
   rank:         'BRONCE',
   current_status: 'ACTIVE',
-  vip_status:   { is_vip: false, days_left: 0, start_date: null },
+  vip_status:   { is_vip: false, start_date: null, expiresAt: null },
   stats:        { games_played: 0, games_won: 0, games_lost: 0, games_abandoned: 0 },
-  avatar_id:      'telegram',
-  frame_id:       'rank',
-  badge_id:       'default',
-  badge_contexts: { global: 'default', domino: null },
-  inventory:      { avatars: ['telegram', 'default'], frames: ['rank'], badges: ['default'] },
+  avatar_id:      'avatar_default',
+  frame_id:       'frame_bronce',
+  badge_id:       'badge_bronce',
 };
 
 async function migrate() {

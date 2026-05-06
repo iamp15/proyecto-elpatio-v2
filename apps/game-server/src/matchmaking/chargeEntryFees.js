@@ -1,105 +1,170 @@
-const { createTransaction } = require('@el-patio/database');
+const {
+  createTransaction,
+  subunitsToStonesFloor,
+  normalizeCouponLeagueId,
+  tryConsumeLeagueCouponForEntryFee,
+  restoreLeagueCouponAfterRollback,
+} = require('@el-patio/database');
 
 /**
- * Cobra el entry fee a todos los jugadores de la sala en paralelo.
+ * @typedef {'stones' | 'coupon'} EntryChargeMethod
+ */
+
+/**
+ * @typedef {Object} ChargeRecord
+ * @property {number} userId
+ * @property {string} socketId
+ * @property {EntryChargeMethod} method
+ * @property {number} balance_after_subunits
+ */
+
+/**
+ * Resuelve el categoryId de la sala (Liga) desde el input de cobro.
+ * @param {{ config?: { categoryId?: string }, modeId?: string }} | { config: object, modeId?: string }} input
+ */
+function resolveCategoryId(input) {
+  if (input.config && typeof input.config.categoryId === 'string') {
+    return input.config.categoryId;
+  }
+  if (typeof input.modeId === 'string') {
+    return input.modeId;
+  }
+  return '';
+}
+
+/**
+ * Cobra el entry fee a cada jugador en orden. En ligas con cupón de entrada: intenta cupón de esa liga antes que Piedras.
+ * Si falla un jugador, revierte los cobros previos (Piedras → REFUND; cupón → +1 quantity).
  *
- * IMPORTANTE sobre el mapeo de resultados:
- *   Promise.allSettled garantiza que results[i] corresponde SIEMPRE a
- *   players[i] (mismo índice de inserción). Por eso usamos el índice para
- *   atribuir el saldo resultante a cada jugador, en lugar de comparar
- *   tx.user_id — lo que evita cualquier problema de tipo o colisión de userId.
- *
- * @param {import('./Room').Room} room
+ * @param {import('./Room').Room | { roomId: string, config: { entryFee_subunits: number, categoryId?: string }, feePlayers: Array<{ userId: number, socketId: string, socket?: import('socket.io').Socket }> }} input
  * @returns {Promise<
- *   { success: true,  balancesAfter: Array<{ userId: number, socketId: string, balance_subunits: number, piedras: number }> } |
+ *   { success: true, balancesAfter: Array<{ userId: number, socketId: string, balance_subunits: number, piedras: number }>, chargeDetails: ChargeRecord[] } |
  *   { success: false, failedUserIds: number[] }
  * >}
  */
-async function chargeEntryFees(room) {
-  const { entryFee_subunits } = room.config;
+async function chargeEntryFees(input) {
+  const roomId = input.roomId;
+  const config = input.config;
+  const { entryFee_subunits } = config;
+  const categoryId = resolveCategoryId(input);
+  const couponLeague = normalizeCouponLeagueId(categoryId);
 
-  // Capturamos snapshot de jugadores ANTES del await para que el índice
-  // no cambie si alguien se desconecta mientras corren las transacciones.
-  const players = [...room.players];
+  const players = [...(input.feePlayers ?? input.players)];
 
-  const results = await Promise.allSettled(
-    players.map((player) =>
-      createTransaction({
-        userId:                player.userId,
-        amount_subunits:       -entryFee_subunits,
-        type:                  'BET',
-        reference_external_id: room.roomId,
-      }),
-    ),
-  );
+  /** @type {ChargeRecord[]} */
+  const chargeDetails = [];
 
-  // Detectar fallos usando índice (más robusto que filtrar por userId)
-  const failedIndices = results.reduce((acc, r, i) => {
-    if (r.status === 'rejected') acc.push(i);
-    return acc;
-  }, []);
+  try {
+    for (const player of players) {
+      let method;
+      let balanceAfter;
 
-  if (failedIndices.length > 0) {
-    failedIndices.forEach((i) => {
-      console.warn(
-        `[chargeEntryFees] Cobro fallido para userId=${players[i].userId}:`,
-        results[i].reason?.message ?? 'Error desconocido',
-      );
-    });
+      let couponLeagueUsed;
+      if (couponLeague) {
+        const couponResult = await tryConsumeLeagueCouponForEntryFee({
+          userId: player.userId,
+          roomId,
+          leagueId: couponLeague,
+        });
+        if (couponResult) {
+          method = 'coupon';
+          couponLeagueUsed = couponLeague;
+          balanceAfter = couponResult.balance_after_subunits;
+        }
+      }
 
-    // Solo hacemos refund a los que SÍ pagaron
-    const succeededUserIds = results
-      .map((r, i) => (r.status === 'fulfilled' ? players[i].userId : null))
-      .filter((id) => id !== null);
+      if (!method) {
+        const tx = await createTransaction({
+          userId: player.userId,
+          amount_subunits: -entryFee_subunits,
+          type: 'BET',
+          reference_external_id: roomId,
+        });
+        method = 'stones';
+        balanceAfter = tx.balance_after_subunits;
+      }
 
-    await refundPlayers(succeededUserIds, entryFee_subunits, room.roomId);
+      chargeDetails.push({
+        userId: player.userId,
+        socketId: player.socketId,
+        method,
+        balance_after_subunits: balanceAfter,
+        ...(method === 'coupon' && couponLeagueUsed ? { couponLeague: couponLeagueUsed } : {}),
+      });
+    }
+  } catch (err) {
+    const failIdx = chargeDetails.length;
+    const failedUserId = failIdx < players.length ? players[failIdx].userId : null;
+    console.warn(
+      `[chargeEntryFees] Cobro fallido para userId=${failedUserId ?? '?'}:`,
+      err?.message ?? 'Error desconocido',
+    );
 
-    const failedUserIds = failedIndices.map((i) => players[i].userId);
+    await rollbackSuccessfulCharges(chargeDetails, entryFee_subunits, roomId);
+
+    const failedUserIds = failedUserId != null ? [failedUserId] : [];
     return { success: false, failedUserIds };
   }
 
-  // Mapeo por índice: results[i] → players[i] → socketId exacto del jugador.
-  // Incluir socketId permite que domino.js emita al socket correcto sin depender
-  // de que userId sea único (previene el bug de cross-account si dos sockets
-  // tuvieran el mismo userId por algún edge case).
-  const balancesAfter = results.map((r, i) => ({
-    userId:           players[i].userId,
-    socketId:         players[i].socketId,
-    balance_subunits: r.value.balance_after_subunits,
-    piedras:          r.value.balance_after_subunits / 100,
+  const balancesAfter = chargeDetails.map((c, i) => ({
+    userId: players[i].userId,
+    socketId: players[i].socketId,
+    balance_subunits: c.balance_after_subunits,
+    piedras: subunitsToStonesFloor(c.balance_after_subunits),
   }));
 
-  return { success: true, balancesAfter };
+  return { success: true, balancesAfter, chargeDetails };
 }
 
 /**
- * Emite un REFUND a cada userId de la lista.
- * Los errores de refund se loguean pero no interrumpen el proceso
- * para evitar dejar transacciones colgadas.
- *
- * @param {number[]} userIds
- * @param {number}   entryFee_subunits
- * @param {string}   roomId
+ * @param {ChargeRecord[]} chargeDetails
+ * @param {number} entryFee_subunits
+ * @param {string} roomId
  */
-async function refundPlayers(userIds, entryFee_subunits, roomId) {
-  await Promise.allSettled(
-    userIds.map(async (userId) => {
-      try {
+async function rollbackSuccessfulCharges(chargeDetails, entryFee_subunits, roomId) {
+  for (let i = chargeDetails.length - 1; i >= 0; i--) {
+    const c = chargeDetails[i];
+    try {
+      if (c.method === 'stones') {
         await createTransaction({
-          userId,
-          amount_subunits:       entryFee_subunits,
-          type:                  'REFUND',
+          userId: c.userId,
+          amount_subunits: entryFee_subunits,
+          type: 'REFUND',
           reference_external_id: roomId,
         });
-        console.log(`[chargeEntryFees] Refund OK para userId=${userId}`);
-      } catch (refundErr) {
-        console.error(
-          `[chargeEntryFees] ERROR en refund para userId=${userId}:`,
-          refundErr.message,
-        );
+        console.log(`[chargeEntryFees] Refund Piedras OK userId=${c.userId}`);
+      } else if (c.method === 'coupon') {
+        const leagueId = c.couponLeague || 'BRONCE';
+        if (!c.couponLeague) {
+          console.warn(
+            `[chargeEntryFees] Rollback cupón sin couponLeague; usando BRONCE userId=${c.userId}`,
+          );
+        }
+        await restoreLeagueCouponAfterRollback({
+          userId: c.userId,
+          roomId,
+          leagueId,
+        });
+        console.log(`[chargeEntryFees] Cupón de liga restaurado userId=${c.userId} league=${leagueId}`);
       }
-    }),
-  );
+    } catch (refundErr) {
+      console.error(
+        `[chargeEntryFees] ERROR en rollback para userId=${c.userId} (${c.method}):`,
+        refundErr.message,
+      );
+    }
+  }
 }
 
-module.exports = { chargeEntryFees };
+/**
+ * Devuelve entradas cobradas (Piedras o cupón) tras un fallo posterior (p. ej. creación de sala).
+ * @param {ChargeRecord[]} chargeDetails - Salida de chargeEntryFees en success
+ * @param {number} entryFee_subunits
+ * @param {string} roomId
+ */
+async function refundBetsForRoom(chargeDetails, entryFee_subunits, roomId) {
+  if (!Array.isArray(chargeDetails) || chargeDetails.length === 0) return;
+  await rollbackSuccessfulCharges(chargeDetails, entryFee_subunits, roomId);
+}
+
+module.exports = { chargeEntryFees, refundBetsForRoom };

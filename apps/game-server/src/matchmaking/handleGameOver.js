@@ -1,5 +1,12 @@
-const { runDominoSettlement, User } = require('@el-patio/database');
-const configManager = require('../config/ConfigManager');
+const {
+  runDominoSettlement,
+  User,
+  AppConfigManager,
+  toWholeStoneSubunits,
+  subunitsToStonesFloor,
+  isUserVip,
+} = require('@el-patio/database');
+const { calculateDominoNormalPrize } = require('./calculateDominoNormalPrize');
 
 const MSG_WIN_FORFEIT =
   'Tu rival ha huido de la batalla. Victoria por abandono.';
@@ -38,17 +45,38 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta
 
   let prize_subunits;
   let settlementKind;
+  /** Partida normal o abandono tras primera mano: % rake de la liga. */
+  let leagueRakePercent = null;
 
   if (earlyForfeit) {
-    prize_subunits = entryFee_subunits;
+    prize_subunits = toWholeStoneSubunits(entryFee_subunits);
     settlementKind = 'forfeit_early';
-  } else if (forfeit) {
-    /** Caso B: abandono tras al menos una mano — pozo completo (ambas apuestas), sin fraude por matchmaking. */
-    prize_subunits = totalPot_subunits;
-    settlementKind = 'forfeit_full';
   } else {
-    prize_subunits = Math.floor(totalPot_subunits * 0.8);
-    settlementKind = 'normal';
+    leagueRakePercent = AppConfigManager.getLeagueRakePercent(room.config.categoryId);
+    const winnerRow = await User.findById(winnerId).lean().select('vip_status');
+    const winnerIsVip = isUserVip(winnerRow);
+    const { rawPrize_subunits: rawPrize } = calculateDominoNormalPrize(
+      totalPot_subunits,
+      leagueRakePercent,
+      winnerIsVip,
+    );
+    /** Premio siempre en piedras enteras (múltiplo de 100 subunidades). El resto queda como comisión implícita. */
+    prize_subunits = toWholeStoneSubunits(rawPrize);
+    settlementKind = forfeit ? 'forfeit_full' : 'normal';
+  }
+
+  const prize_piedras = subunitsToStonesFloor(prize_subunits);
+  let prize_piedras_base = prize_piedras;
+  let vip_piedras_bonus = 0;
+  if ((settlementKind === 'normal' || settlementKind === 'forfeit_full') && leagueRakePercent != null) {
+    const { rawPrize_subunits: rawNoVip } = calculateDominoNormalPrize(
+      totalPot_subunits,
+      leagueRakePercent,
+      false,
+    );
+    const subNoVip = toWholeStoneSubunits(rawNoVip);
+    prize_piedras_base = subunitsToStonesFloor(subNoVip);
+    vip_piedras_bonus = Math.max(0, prize_piedras - prize_piedras_base);
   }
 
   const commission_subunits = totalPot_subunits - prize_subunits;
@@ -64,7 +92,8 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta
     winnerId,
     loserUserIds: loserPlayers.map((p) => Number(p.userId)),
     winnerPayoutSubunits: prize_subunits,
-    getRankForPR: (pr) => configManager.getRankForPR('domino', pr),
+    getRankForPR: (pr) => AppConfigManager.getRankForPR('domino', pr),
+    league: room.config.categoryId, // Se pasa el nuevo parámetro 'league' usando 'categoryId'
   });
 
   if (result.idempotent) {
@@ -74,7 +103,7 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta
     if (wUser) {
       winnerPlayer.socket?.emit('balance_updated', {
         balance_subunits: wUser.balance_subunits,
-        piedras: wUser.balance_subunits / 100,
+        piedras: subunitsToStonesFloor(wUser.balance_subunits),
       });
       winnerPlayer.socket?.emit('pr_updated', {
         pr: wUser.pr,
@@ -86,6 +115,10 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta
     for (const lp of loserPlayers) {
       const lu = await User.findById(lp.userId).lean();
       if (!lu) continue;
+      lp.socket?.emit('balance_updated', {
+        balance_subunits: lu.balance_subunits,
+        piedras: subunitsToStonesFloor(lu.balance_subunits),
+      });
       lp.socket?.emit('pr_updated', {
         pr: lu.pr,
         rank: lu.rank,
@@ -94,19 +127,28 @@ async function handleGameOver(room, winnerId, nsp, finalScores = {}, forfeitMeta
     }
   }
 
+  const participants = room.players.map((p) => Number(p.userId)).filter(Number.isFinite);
+  if (participants.length === 2) {
+    room.dominoLiveContext?.roomManager?.recordRecentMatch(participants[0], participants[1]);
+  }
+
   room.finish();
 
   const basePayload = {
     roomId: room.roomId,
     winnerId,
     prize_subunits,
-    prize_piedras: prize_subunits / 100,
+    prize_piedras,
+    prize_piedras_base: prize_piedras_base,
+    vip_piedras_bonus: vip_piedras_bonus,
     commission_subunits,
     commission_pct,
     finalScores,
     prChanges: {
-      winnerGain: result.winnerPrGain,
-      loserLoss: result.loserPrLoss,
+      winnerGain:     result.winnerPrGain,
+      loserLoss:      result.loserPrLoss,
+      winnerGainBase: result.winnerPrGainBase ?? result.loserPrLoss,
+      vipPrBonus:     result.winnerVipPrBonus ?? 0,
     },
     forfeit,
     forfeitingUserId: forfeitMeta.forfeitingUserId ?? null,

@@ -12,8 +12,9 @@ export const toSubunits = (stones) => Math.floor(stones * FACTOR);
 export const toStones = (subunits) => Math.floor(subunits / FACTOR);
 
 /**
- * Calcula una comisión (Rake) y devuelve el entero en sub-unidades.
+ * Comisión (rake) en subunidades, siempre múltiplo de 100 (piedras enteras).
  */
 export const calculateRake = (amountSubunits, percentage) => {
-  return Math.floor(amountSubunits * (percentage / 100));
+  const raw = Math.floor(Number(amountSubunits) * (percentage / 100));
+  return Math.floor(raw / FACTOR) * FACTOR;
 };

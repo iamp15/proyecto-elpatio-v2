@@ -1,0 +1,259 @@
+{
+  "coupon_bronze": {
+    "name": "Cupón de Liga Bronce",
+    "description": "Pago de entrada a la Liga Bronce sin gastar Piedras. Se consume al emparejar una partida en esa liga.",
+    "fallbackEmoji": "🎟️",
+    "iconUrl": "/assets/items/coupons/bronce.png",
+    "category": "consumable",
+    "subType": "league_coupon",
+    "requirement": "none",
+    "consumableKind": "league_entry_coupon"
+  },
+  "coupon_plata": {
+    "name": "Cupón de Liga Plata",
+    "description": "Pago de entrada a la Liga Plata sin gastar Piedras. Se consume al emparejar una partida en esa liga.",
+    "fallbackEmoji": "🥈",
+    "iconUrl": "/assets/items/coupons/plata.png",
+    "category": "consumable",
+    "subType": "league_coupon",
+    "requirement": "none",
+    "consumableKind": "league_entry_coupon"
+  },
+  "coupon_oro": {
+    "name": "Cupón de Liga Oro",
+    "description": "Pago de entrada a la Liga Oro sin gastar Piedras. Se consume al emparejar una partida en esa liga.",
+    "fallbackEmoji": "🥇",
+    "iconUrl": "/assets/items/coupons/oro.png",
+    "category": "consumable",
+    "subType": "league_coupon",
+    "requirement": "none",
+    "consumableKind": "league_entry_coupon"
+  },
+  "coupon_diamante": {
+    "name": "Cupón de Liga Diamante",
+    "description": "Pago de entrada a la Liga Diamante sin gastar Piedras. Se consume al emparejar una partida en esa liga.",
+    "fallbackEmoji": "💎",
+    "iconUrl": "/assets/items/coupons/diamante.png",
+    "category": "consumable",
+    "subType": "league_coupon",
+    "requirement": "none",
+    "consumableKind": "league_entry_coupon"
+  },
+  "vip_pass_1d": {
+    "name": "Vale VIP 1D",
+    "description": "Activa beneficios VIP durante 24 horas: nombre destacado, marco exclusivo en lobby y más.",
+    "fallbackEmoji": "✨",
+    "category": "consumable",
+    "subType": "vip_pass_1d",
+    "requirement": "none",
+    "consumableKind": "activatable_consumable"
+  },
+  "chat_phrase_vip1": {
+    "name": "Frase 1 VIP",
+    "description": "Frase de chat exclusiva para jugadores VIP.",
+    "fallbackEmoji": "💬",
+    "category": "consumable",
+    "subType": "chat_phrase",
+    "requirement": "vip_active"
+  },
+  "chat_emote_crown": {
+    "name": "Emote Corona",
+    "description": "Emote de corona exclusivo para jugadores VIP.",
+    "fallbackEmoji": "👑",
+    "category": "consumable",
+    "subType": "chat_emote",
+    "requirement": "vip_active"
+  },
+  "avatar_default": {
+    "name": "Avatar Genérico",
+    "description": "Avatar genérico de desarrollo.",
+    "fallbackEmoji": "👤",
+    "iconUrl": "/assets/items/avatars/avatar_default.svg",
+    "category": "cosmetic",
+    "subType": "avatar_photo",
+    "requirement": "none"
+  },
+  "avatar_default2": {
+    "name": "Avatar Azul",
+    "description": "Avatar genérico azul de desarrollo.",
+    "fallbackEmoji": "👤",
+    "iconUrl": "/assets/items/avatars/avatar_default2.svg",
+    "category": "cosmetic",
+    "subType": "avatar_photo",
+    "requirement": "none"
+  },
+  "avatar_default3": {
+    "name": "Avatar Verde",
+    "description": "Avatar genérico verde de desarrollo.",
+    "fallbackEmoji": "👤",
+    "iconUrl": "/assets/items/avatars/avatar_default3.svg",
+    "category": "cosmetic",
+    "subType": "avatar_photo",
+    "requirement": "none"
+  },
+  "frame_bronce": {
+    "name": "Marco Bronce",
+    "description": "Marco básico de Liga Bronce.",
+    "fallbackEmoji": "◯",
+    "iconUrl": "/assets/items/frames/frame_bronce.svg",
+    "category": "cosmetic",
+    "subType": "avatar_frame",
+    "requirement": "none"
+  },
+  "frame_plata": {
+    "name": "Marco Plata",
+    "description": "Marco básico de Liga Plata.",
+    "fallbackEmoji": "◯",
+    "iconUrl": "/assets/items/frames/frame_plata.svg",
+    "category": "cosmetic",
+    "subType": "avatar_frame",
+    "requirement": "none"
+  },
+  "frame_oro": {
+    "name": "Marco Oro",
+    "description": "Marco básico de Liga Oro.",
+    "fallbackEmoji": "◯",
+    "iconUrl": "/assets/items/frames/frame_oro.svg",
+    "category": "cosmetic",
+    "subType": "avatar_frame",
+    "requirement": "none"
+  },
+  "frame_diamante": {
+    "name": "Marco Diamante",
+    "description": "Marco básico de Liga Diamante.",
+    "fallbackEmoji": "◯",
+    "iconUrl": "/assets/items/frames/frame_diamante.svg",
+    "category": "cosmetic",
+    "subType": "avatar_frame",
+    "requirement": "none"
+  },
+  "badge_bronce": {
+    "name": "Insignia Novato",
+    "description": "Insignia básica de desarrollo para jugadores nuevos.",
+    "fallbackEmoji": "★",
+    "iconUrl": "/assets/items/badges/badge_bronce.svg",
+    "category": "cosmetic",
+    "subType": "profile_badge",
+    "requirement": "none"
+  },
+  "badge_plata": {
+    "name": "Insignia Plata",
+    "description": "Insignia básica de Liga Plata.",
+    "fallbackEmoji": "★",
+    "iconUrl": "/assets/items/badges/badge_plata.svg",
+    "category": "cosmetic",
+    "subType": "profile_badge",
+    "requirement": "none"
+  },
+  "badge_oro": {
+    "name": "Insignia Oro",
+    "description": "Insignia básica de Liga Oro.",
+    "fallbackEmoji": "★",
+    "iconUrl": "/assets/items/badges/badge_oro.svg",
+    "category": "cosmetic",
+    "subType": "profile_badge",
+    "requirement": "none"
+  },
+  "badge_diamante": {
+    "name": "Insignia Diamante",
+    "description": "Insignia básica de Liga Diamante.",
+    "fallbackEmoji": "◆",
+    "iconUrl": "/assets/items/badges/badge_diamante.svg",
+    "category": "cosmetic",
+    "subType": "profile_badge",
+    "requirement": "none"
+  },
+  "badge_vip": {
+    "name": "Insignia VIP",
+    "description": "Insignia exclusiva para miembros VIP.",
+    "fallbackEmoji": "VIP",
+    "iconUrl": "/assets/items/badges/badge_vip.svg",
+    "category": "cosmetic",
+    "subType": "profile_badge",
+    "requirement": "vip_active"
+  },
+  "telegram": {
+    "name": "Foto de Telegram",
+    "description": "Usa la foto de perfil de Telegram si está disponible.",
+    "fallbackEmoji": "📷",
+    "requirement": "none"
+  },
+  "default": {
+    "name": "Predeterminado",
+    "description": "Cosmético básico: iniciales con gradiente o badge estrella, según el tipo en tu inventario.",
+    "fallbackEmoji": "✦",
+    "requirement": "none"
+  },
+  "vip_gold": {
+    "name": "VIP Dorado",
+    "description": "Cosmético VIP dorado (avatar o marco, según la fila de inventario).",
+    "fallbackEmoji": "👑",
+    "requirement": "vip_active"
+  },
+  "halloween": {
+    "name": "Avatar de Halloween",
+    "description": "Edición limitada de Halloween.",
+    "fallbackEmoji": "🎃",
+    "requirement": "none"
+  },
+  "rank": {
+    "name": "Marco de Liga",
+    "description": "Color según tu rango actual.",
+    "fallbackEmoji": "⬜",
+    "requirement": "none"
+  },
+  "vip_silver": {
+    "name": "Marco VIP Plateado",
+    "description": "Marco plateado con brillos, exclusivo VIP.",
+    "fallbackEmoji": "✨",
+    "requirement": "vip_active"
+  },
+  "diamond_sparkle": {
+    "name": "Marco Diamante",
+    "description": "Destellos de diamante para rango DIAMANTE.",
+    "fallbackEmoji": "💎",
+    "requirement": "none"
+  },
+  "gold_sparkle": {
+    "name": "Marco Oro Brillante",
+    "description": "Destellos de oro para rango ORO o superior.",
+    "fallbackEmoji": "🌟",
+    "requirement": "none"
+  },
+  "halloween_frame": {
+    "name": "Marco de Calabaza",
+    "description": "Marco temático de Halloween.",
+    "fallbackEmoji": "🎃",
+    "requirement": "none"
+  },
+  "vip": {
+    "name": "Corona VIP",
+    "description": "Corona para miembros VIP.",
+    "fallbackEmoji": "👑",
+    "requirement": "vip_active"
+  },
+  "torneo": {
+    "name": "Rayo de Torneo",
+    "description": "Badge por participar en torneos.",
+    "fallbackEmoji": "⚡",
+    "requirement": "none"
+  },
+  "fundador": {
+    "name": "Escudo de Fundador",
+    "description": "Exclusivo para fundadores de la plataforma.",
+    "fallbackEmoji": "🛡️",
+    "requirement": "none"
+  },
+  "winner": {
+    "name": "Trofeo de Ganador",
+    "description": "Badge por ganar 10 partidas.",
+    "fallbackEmoji": "🏆",
+    "requirement": "none"
+  },
+  "streak": {
+    "name": "Llama de Racha",
+    "description": "Badge por racha de victorias.",
+    "fallbackEmoji": "🔥",
+    "requirement": "none"
+  }
+}

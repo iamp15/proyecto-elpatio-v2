@@ -1,6 +1,36 @@
 const mongoose = require('mongoose');
+const { CURRENT_SEASON } = require('../utils/currentSeason');
 
 const RANKS = ['BRONCE', 'PLATA', 'ORO', 'DIAMANTE'];
+
+const inventoryEntrySchema = new mongoose.Schema(
+  {
+    itemId: { type: String, required: true },
+    category: { type: String, required: true },
+    subType: { type: String, required: true },
+    quantity: { type: Number, required: true, min: 0 },
+    isEquipped: { type: Boolean, default: false },
+    acquiredAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const vipStatusSchema = new mongoose.Schema(
+  {
+    is_vip: { type: Boolean, default: false },
+    start_date: { type: Date, default: null },
+    expiresAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+
+const seasonProgressSchema = new mongoose.Schema(
+  {
+    season_id: { type: Number, default: CURRENT_SEASON },
+    claimed_leagues: { type: [String], default: () => [] },
+  },
+  { _id: false },
+);
 
 const userSchema = new mongoose.Schema({
   _id: { type: Number, required: true }, // Telegram ID
@@ -26,30 +56,23 @@ const userSchema = new mongoose.Schema({
   },
   avatar_id: {
     type: String,
-    default: 'telegram',
+    default: 'avatar_default',
   },
   frame_id: {
     type: String,
-    default: 'rank',
+    default: 'frame_bronce',
   },
   badge_id: {
     type: String,
-    default: 'default',
-  },
-  badge_contexts: {
-    type: Object,
-    default: {
-      global: 'default',
-      domino: null,
-    },
+    default: 'badge_bronce',
   },
   inventory: {
-    type: Object,
-    default: {
-      avatars: ['telegram', 'default'],
-      frames: ['rank'],
-      badges: ['default'],
-    },
+    type: [inventoryEntrySchema],
+    default: () => [],
+  },
+  lastDailyCouponRefill: {
+    type: Date,
+    default: Date.now,
   },
   pr: {
     type: Number,
@@ -60,18 +83,23 @@ const userSchema = new mongoose.Schema({
     enum: RANKS,
     default: 'BRONCE',
   },
+  pendingPromotion: {
+    type: String,
+    enum: [...RANKS, null],
+    default: null,
+  },
+  season_progress: {
+    type: seasonProgressSchema,
+    default: () => ({ season_id: CURRENT_SEASON, claimed_leagues: [] }),
+  },
   current_status: {
     type: String,
     enum: ['ACTIVE', 'BANNED'],
     default: 'ACTIVE',
   },
   vip_status: {
-    type: Object,
-    default: {
-      is_vip: false,
-      days_left: 0,
-      start_date: null,
-    },
+    type: vipStatusSchema,
+    default: () => ({ is_vip: false, start_date: null, expiresAt: null }),
   },
   stats: {
     type: Object,

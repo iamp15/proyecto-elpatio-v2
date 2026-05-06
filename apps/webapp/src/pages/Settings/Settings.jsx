@@ -4,6 +4,7 @@ import SettingsToggle from './components/SettingsToggle';
 import SettingsVolumeSlider from './components/SettingsVolumeSlider';
 import SettingsSfxSection from './components/SettingsSfxSection';
 import SettingsMusicSection from './components/SettingsMusicSection';
+import BackHomeButton from '../../components/navigation/BackHomeButton';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -78,6 +79,7 @@ export default function Settings() {
           onMusicVolumeChange={setMusicVolume}
         />
       </div>
+      <BackHomeButton />
     </div>
   );
 }

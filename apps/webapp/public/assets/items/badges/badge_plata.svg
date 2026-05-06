@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 40" role="img" aria-label="Insignia plata">
+  <rect x="4" y="6" width="104" height="28" rx="7" fill="#C0C0C0"/>
+  <rect x="7" y="9" width="98" height="22" rx="5" fill="none" stroke="#f8fafc" stroke-width="2" opacity="0.85"/>
+  <path d="M56 12l2.5 5.1 5.6.8-4.1 4 1 5.6-5-2.7-5 2.7 1-5.6-4.1-4 5.6-.8L56 12z" fill="#334155"/>
+  <circle cx="16" cy="20" r="3" fill="#64748b" opacity="0.75"/>
+  <circle cx="96" cy="20" r="3" fill="#64748b" opacity="0.75"/>
+</svg>

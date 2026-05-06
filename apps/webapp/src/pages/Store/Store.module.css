@@ -1,87 +1,216 @@
 .container {
-  padding: 20px;
   min-height: 100vh;
-  background-color: #0d1117;
-  color: #ffffff;
+  padding: 20px;
+  background: #0f1115;
+  color: #f7f5ef;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b99356;
 }
 
 .title {
-  font-size: 24px;
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
   font-weight: 700;
-  margin-bottom: 8px;
-  color: #ffffff;
 }
 
-.subtitle {
-  font-size: 16px;
-  color: #8b949e;
-  margin-bottom: 32px;
+.balanceCard {
+  min-width: 180px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(185, 147, 86, 0.42);
+  background: linear-gradient(160deg, #1a1d22 0%, #16181d 100%);
+  text-align: right;
 }
 
-.comingSoonContainer {
-  text-align: center;
-  padding: 40px 20px;
-  background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(156, 39, 176, 0.1));
-  border-radius: 16px;
-  margin-bottom: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.balanceAmount {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+  color: #f2d09a;
 }
 
-.comingSoonIcon {
-  font-size: 64px;
-  margin-bottom: 20px;
+.balanceMeta {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d0b68a;
+  font-size: 12px;
 }
 
-.comingSoonTitle {
-  font-size: 20px;
+.balanceIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #171a1f;
+  border: 1px solid #282d35;
+}
+
+.tabButton {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #9ea5b0;
+  padding: 8px 16px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: #ffffff;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.comingSoonText {
-  font-size: 15px;
-  color: #c9d1d9;
-  max-width: 500px;
-  margin: 0 auto;
-  line-height: 1.5;
+.tabButton:hover {
+  color: #f1ddbb;
 }
 
-.featuresGrid {
+.tabButtonActive {
+  background: linear-gradient(180deg, #b99356 0%, #8f6a35 100%);
+  color: #15110b;
+}
+
+.panel {
+  margin-top: 18px;
+}
+
+.productsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
 }
 
-.featureCard {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: transform 0.2s ease, background-color 0.2s ease;
+.productCard {
+  background: #1a1d22;
+  border-radius: 16px;
+  border: 1px solid #2a2f37;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
-.featureCard:hover {
-  transform: translateY(-4px);
-  background-color: rgba(255, 255, 255, 0.08);
+.productCard:hover {
+  border-color: #3a414b;
+  transform: translateY(-2px);
 }
 
-.featureIcon {
-  font-size: 32px;
-  margin-bottom: 12px;
+.productCardPopular {
+  border-color: rgba(193, 146, 83, 0.85);
+  box-shadow: 0 0 0 1px rgba(193, 146, 83, 0.35), 0 12px 26px rgba(93, 69, 35, 0.25);
 }
 
-.featureTitle {
+.cardTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.productName {
+  margin: 0;
   font-size: 16px;
+  color: #dfc293;
   font-weight: 600;
-  margin-bottom: 8px;
+}
+
+.bonusBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #20160a;
+  background: linear-gradient(180deg, #e4b765 0%, #ba8840 100%);
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.productStones {
+  margin: 2px 0 0;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 700;
   color: #ffffff;
 }
 
-.featureDescription {
+.productCaption {
+  margin: 0;
+  color: #8f98a4;
   font-size: 13px;
-  color: #8b949e;
-  line-height: 1.4;
+}
+
+.buyButton {
+  margin-top: auto;
+  appearance: none;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a130a;
+  background: linear-gradient(180deg, #d9a959 0%, #b7833d 100%);
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.buyButton:hover:enabled {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.buyButton:disabled {
+  cursor: not-allowed;
+  background: #59523f;
+  color: #d8c5a2;
+}
+
+.emptyState {
+  background: #1a1d22;
+  border: 1px solid #2a2f37;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.emptyState h2 {
+  margin: 0 0 8px;
+  color: #e2c38f;
+}
+
+.emptyState p {
+  margin: 0;
+  color: #99a1ac;
+}
+
+@media (max-width: 700px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .balanceCard {
+    text-align: left;
+  }
+
+  .balanceMeta {
+    display: flex;
+  }
 }

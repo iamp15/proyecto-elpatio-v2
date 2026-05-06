@@ -1,11 +1,13 @@
 const { Room } = require('./Room');
-const configManager = require('../config/ConfigManager');
+const { AppConfigManager } = require('@el-patio/database');
 const { createGame } = require('../game-logic/GameFactory');
+const { RecentOpponentsStore } = require('./RecentOpponentsStore');
 
 class RoomManager {
   constructor() {
     /** @type {Map<string, Room>} */
     this._rooms = new Map();
+    this._recentOpponents = new RecentOpponentsStore();
   }
 
   /**
@@ -42,7 +44,7 @@ class RoomManager {
   }
 
   createRoom(categoryId) {
-    const config = configManager.getRankConfig('domino', categoryId);
+    const config = AppConfigManager.getRankConfig('domino', categoryId);
     if (!config) {
       throw new Error(`Categoría de rango desconocida: ${categoryId}`);
     }
@@ -65,6 +67,23 @@ class RoomManager {
     return room;
   }
 
+  /**
+   * Crea sala con id ya reservado (cobro de entrada ya confirmado en BD).
+   * @param {string} roomId
+   * @param {string} categoryId
+   * @param {object} config
+   * @returns {Room}
+   */
+  createRoomWithConfigAndId(roomId, categoryId, config) {
+    if (this._rooms.has(roomId)) {
+      throw new Error(`RoomManager: roomId duplicado ${roomId}`);
+    }
+    const room = new Room(categoryId, config, roomId);
+    this._rooms.set(roomId, room);
+    console.log(`[RoomManager] Sala creada (id reservado): ${roomId} (${categoryId})`);
+    return room;
+  }
+
   getRoom(roomId) {
     return this._rooms.get(roomId) ?? null;
   }
@@ -84,6 +103,22 @@ class RoomManager {
       }
     }
     return null;
+  }
+
+  /**
+   * Usuario presente en alguna sala no finalizada (espera, cobro o partida).
+   * Evita multisesión: no buscar partida desde otro dispositivo mientras sigue en matchmaking en sala.
+   * @param {string|number} userId
+   * @returns {boolean}
+   */
+  isUserInActiveRoom(userId) {
+    const uid = Number(userId);
+    if (Number.isNaN(uid)) return false;
+    for (const room of this._rooms.values()) {
+      if (room.status === 'FINISHED') continue;
+      if (room.players.some((p) => Number(p.userId) === uid)) return true;
+    }
+    return false;
   }
 
   delete(roomId) {
@@ -142,6 +177,19 @@ class RoomManager {
 
   get size() {
     return this._rooms.size;
+  }
+
+  recordRecentMatch(userA, userB) {
+    this._recentOpponents.recordMatch(userA, userB);
+  }
+
+  hasRecentMatch(userA, userB) {
+    return this._recentOpponents.playedRecently(userA, userB);
+  }
+
+  /** @returns {number[]} userIds en cooldown de revancha con este usuario (debug). */
+  getCooldownOpponentsForUser(userId) {
+    return this._recentOpponents.getActiveOpponentIdsFor(userId);
   }
 }
 

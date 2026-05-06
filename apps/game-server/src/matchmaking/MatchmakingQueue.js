@@ -1,5 +1,6 @@
-const configManager = require('../config/ConfigManager');
-const { chargeEntryFees } = require('./chargeEntryFees');
+const { randomUUID } = require('crypto');
+const { AppConfigManager } = require('@el-patio/database');
+const { chargeEntryFees, refundBetsForRoom } = require('./chargeEntryFees');
 const { enrichPlayersWithUsernames } = require('./enrichPlayers');
 const { createDefaultQueueStore } = require('./QueueStore');
 
@@ -14,6 +15,9 @@ const PR_EXPANSION_PER_SECOND = 10;
 
 /** Máximo emparejamientos por ciclo de tick. */
 const MAX_MATCHES_PER_TICK = 5;
+
+/** Diferencia máxima absoluta de PR permitida entre dos jugadores. */
+const MAX_PR_GAP = 1000;
 
 /** Umbral para diferir evaluación con setImmediate. */
 const LARGE_QUEUE_THRESHOLD = 200;
@@ -62,12 +66,12 @@ class MatchmakingQueue {
    * Añade un jugador a la cola. Solo categorías con maxPlayers === 2.
    * @param {import('socket.io').Socket} socket
    * @param {string} categoryId
-   * @param {boolean} allowLowerLeague
+   * @param {boolean} allowCrossLeague - Nativo: modo valiente (expande PR hacia arriba) vs seguro; legacy: allowLowerLeague
    * @param {number} pr
    * @returns {{ ok: boolean, error?: string }}
    */
-  addPlayer(socket, categoryId, allowLowerLeague, pr) {
-    const config = configManager.getRankConfig(GAME_ID, categoryId);
+  addPlayer(socket, categoryId, allowCrossLeague, pr) {
+    const config = AppConfigManager.getRankConfig(GAME_ID, categoryId);
     if (!config || config.maxPlayers !== 2) {
       return {
         ok:    false,
@@ -76,17 +80,19 @@ class MatchmakingQueue {
     }
 
     const userId = socket.data.userId;
-    if (this.queueStore.hasPlayer(userId)) {
+    if (this.queueStore.isUserInQueue(userId)) {
       return { ok: false, error: 'Ya estás en la cola.' };
     }
 
+    const cross = !!allowCrossLeague;
     const player = {
       userId,
       socketId: socket.id,
       socket,
       pr,
       categoryId,
-      allowLowerLeague: !!allowLowerLeague,
+      allowCrossLeague: cross,
+      allowLowerLeague: cross,
       joinTime: Date.now(),
     };
 
@@ -98,6 +104,12 @@ class MatchmakingQueue {
     socket.emit('queue_joined', { categoryId });
     const total = this.queueStore.getTotal2v2Count();
     console.log(`[MatchmakingQueue] userId=${userId} (PR=${pr}) añadido a cola [${categoryId}] (total 2v2: ${total})`);
+    // TODO(quitar): depuración cooldown revancha (~3h)
+    const cooldownRivals = this.roomManager.getCooldownOpponentsForUser(userId);
+    console.log(
+      `[MatchmakingQueue] [DEBUG cooldown] userId=${userId} rivales en lista de cooldown:`,
+      cooldownRivals.length ? cooldownRivals : '(ninguno)',
+    );
 
     if (total >= 2) {
       this._tick().catch((err) =>
@@ -122,17 +134,67 @@ class MatchmakingQueue {
 
   /** @returns {boolean} */
   isInQueue(userId) {
-    return this.queueStore.hasPlayer(userId);
+    return this.queueStore.isUserInQueue(userId);
   }
 
   _getRankIndex(categoryId) {
-    const ranksList = configManager.getAllRanks(GAME_ID);
+    const ranksList = AppConfigManager.getAllRanks(GAME_ID);
     return ranksList.findIndex((r) => r.categoryId === categoryId);
   }
 
   _getSearchRadius(p, now) {
     const secondsInQueue = (now - p.joinTime) / 1000;
     return BASE_PR_RANGE + Math.floor(PR_EXPANSION_PER_SECOND * secondsInQueue);
+  }
+
+  _isProductionRulesEnabled() {
+    return AppConfigManager.isMatchmakingProductionRulesEnabled();
+  }
+
+  /**
+   * Rango de PR aceptable para rival (production rules).
+   * Invasor: PR > maxPR de la cola → searchMax siempre capado al techo de liga (no invasor-invasor).
+   * Nativo: allowCrossLeague false → cap searchMax; true → sin cap superior por liga (sigue MAX_PR_GAP en _canMatch).
+   */
+  _getSearchRange(player, now, categoryId, productionRules) {
+    const radius = this._getSearchRadius(player, now);
+    const calculatedSearchMin = player.pr - radius;
+    const calculatedSearchMax = player.pr + radius;
+
+    if (!productionRules) {
+      return { min: calculatedSearchMin, max: calculatedSearchMax };
+    }
+
+    const cfg = AppConfigManager.getRankConfig(GAME_ID, categoryId);
+    if (!cfg) {
+      return { min: calculatedSearchMin, max: calculatedSearchMax };
+    }
+
+    const leagueMin = Number(cfg.minPR ?? 0);
+    const rawLeagueMax = cfg.maxPR;
+    const finiteLeagueMax = Number.isFinite(rawLeagueMax);
+    const leagueMax = finiteLeagueMax ? rawLeagueMax : Infinity;
+
+    const isInvader = finiteLeagueMax && player.pr > leagueMax;
+    const allowCross = !!(player.allowCrossLeague ?? player.allowLowerLeague);
+
+    let searchMin = calculatedSearchMin;
+    let searchMax = calculatedSearchMax;
+
+    if (isInvader) {
+      searchMax = Math.min(calculatedSearchMax, leagueMax);
+      searchMin = leagueMin;
+    } else if (!allowCross) {
+      if (finiteLeagueMax) {
+        searchMax = Math.min(calculatedSearchMax, leagueMax);
+      }
+    }
+
+    if (searchMin > searchMax) {
+      searchMin = isInvader ? leagueMin : Math.min(calculatedSearchMin, searchMax);
+    }
+
+    return { min: searchMin, max: searchMax };
   }
 
   /** @deprecated Usar _getSearchRadius. Mantenido por compatibilidad con _canMatch. */
@@ -142,7 +204,7 @@ class MatchmakingQueue {
 
   /**
    * Obtiene candidatos para un jugador aplicando Waterfall Search (Cross-Bucket Peeking).
-   * Incluye su liga actual y, si allowLowerLeague y minAcceptablePR en rango inferior, la liga inferior.
+   * Incluye su liga actual y, si allowCrossLeague y minAcceptablePR en rango inferior, la liga inferior.
    * @param {object} player
    * @param {number} now
    * @returns {object[]}
@@ -152,10 +214,10 @@ class MatchmakingQueue {
       .filter((p) => p.userId !== player.userId);
     let candidates = [...ownLeague];
 
-    const lowerCategoryId = configManager.getLowerCategory(GAME_ID, player.categoryId);
-    if (!lowerCategoryId || !player.allowLowerLeague) return candidates;
+    const lowerCategoryId = AppConfigManager.getLowerCategory(GAME_ID, player.categoryId);
+    if (!lowerCategoryId || !(player.allowCrossLeague ?? player.allowLowerLeague)) return candidates;
 
-    const lowerConfig = configManager.getRankConfig(GAME_ID, lowerCategoryId);
+    const lowerConfig = AppConfigManager.getRankConfig(GAME_ID, lowerCategoryId);
     if (!lowerConfig) return candidates;
 
     const searchRadius = this._getSearchRadius(player, now);
@@ -170,29 +232,54 @@ class MatchmakingQueue {
 
   _canMatch(p1, p2, now) {
     const deltaPR = Math.abs(p1.pr - p2.pr);
+    if (deltaPR > MAX_PR_GAP) return { valid: false };
+
+    const productionRules = this._isProductionRulesEnabled();
     const idx1 = this._getRankIndex(p1.categoryId);
     const idx2 = this._getRankIndex(p2.categoryId);
 
     if (idx1 < 0 || idx2 < 0) return { valid: false };
 
     if (p1.categoryId === p2.categoryId) {
-      const maxDelta = Math.min(
-        this._getMaxDeltaAllowed(p1, now),
-        this._getMaxDeltaAllowed(p2, now),
-      );
-      if (deltaPR > maxDelta) return { valid: false };
-      const config = configManager.getRankConfig(GAME_ID, p1.categoryId);
+      if (productionRules) {
+        const r1 = this._getSearchRange(p1, now, p1.categoryId, true);
+        const r2 = this._getSearchRange(p2, now, p2.categoryId, true);
+        const p1AcceptsP2 = p2.pr >= r1.min && p2.pr <= r1.max;
+        const p2AcceptsP1 = p1.pr >= r2.min && p1.pr <= r2.max;
+        if (!p1AcceptsP2 || !p2AcceptsP1) return { valid: false };
+      } else {
+        const maxDelta = Math.min(
+          this._getMaxDeltaAllowed(p1, now),
+          this._getMaxDeltaAllowed(p2, now),
+        );
+        if (deltaPR > maxDelta) return { valid: false };
+      }
+
+      const config = AppConfigManager.getRankConfig(GAME_ID, p1.categoryId);
+      if (!config) return { valid: false };
       return { valid: true, effectiveCategoryId: p1.categoryId, effectiveConfig: config };
     }
 
     const [higher, lower] = idx1 > idx2 ? [p1, p2] : [p2, p1];
-    if (!higher.allowLowerLeague) return { valid: false };
+    if (!(higher.allowCrossLeague ?? higher.allowLowerLeague)) return { valid: false };
+
+    const effectiveCategoryId = lower.categoryId;
+    const config = AppConfigManager.getRankConfig(GAME_ID, effectiveCategoryId);
+    if (!config) return { valid: false };
+
+    if (productionRules) {
+      const rHigh = this._getSearchRange(higher, now, effectiveCategoryId, true);
+      const rLow = this._getSearchRange(lower, now, effectiveCategoryId, true);
+      const highAcceptsLow = lower.pr >= rHigh.min && lower.pr <= rHigh.max;
+      const lowAcceptsHigh = higher.pr >= rLow.min && higher.pr <= rLow.max;
+      if (!highAcceptsLow || !lowAcceptsHigh) return { valid: false };
+      return { valid: true, effectiveCategoryId, effectiveConfig: config };
+    }
 
     const maxDeltaHigher = this._getMaxDeltaAllowed(higher, now);
     if (deltaPR > maxDeltaHigher) return { valid: false };
 
-    const config = configManager.getRankConfig(GAME_ID, lower.categoryId);
-    return { valid: true, effectiveCategoryId: lower.categoryId, effectiveConfig: config };
+    return { valid: true, effectiveCategoryId, effectiveConfig: config };
   }
 
   /**
@@ -205,11 +292,15 @@ class MatchmakingQueue {
    */
   _findBestPair(primaryPlayers, now) {
     const validPairs = [];
+    const productionRules = this._isProductionRulesEnabled();
 
     for (const player of primaryPlayers) {
       const candidates = this._getCandidatesForPlayer(player, now);
       for (const candidate of candidates) {
         if (player.userId >= candidate.userId) continue;
+        if (productionRules && this.roomManager.hasRecentMatch(player.userId, candidate.userId)) {
+          continue;
+        }
         const match = this._canMatch(player, candidate, now);
         if (!match.valid || !match.effectiveConfig) continue;
 
@@ -241,25 +332,114 @@ class MatchmakingQueue {
     };
   }
 
+  /**
+   * Re-encola tras fallo o match cancelado antes del cobro.
+   * Solo sockets conectados: si re-encoláramos al desconectado quedaría una entrada con socket muerto
+   * y isUserInQueue(userId) bloquearía al reconectar (cola fantasma).
+   * @param {object} p1
+   * @param {object} p2
+   */
+  _requeuePair(p1, p2) {
+    for (const p of [p1, p2]) {
+      if (p.socket?.connected) {
+        p.socket.data.inQueue = true;
+        const r = this.queueStore.addPlayer(p);
+        if (!r.ok) {
+          console.error(
+            '[MatchmakingQueue] No se pudo re-encolar tras fallo:',
+            r.error,
+          );
+        }
+      } else if (p.socket?.data) {
+        p.socket.data.inQueue = false;
+      }
+    }
+  }
+
+  /**
+   * @param {object} p1
+   * @param {object} p2
+   * @param {number[]} failedUserIds
+   */
+  _emitChargeFailureAndRequeue(p1, p2, failedUserIds) {
+    for (const player of [p1, p2]) {
+      if (failedUserIds.includes(player.userId)) {
+        player.socket.emit('insufficient_balance', {
+          message: 'No tienes saldo suficiente. La partida fue cancelada.',
+        });
+      } else {
+        player.socket.emit('queue_reset', {
+          message: 'Un jugador no tenía saldo. Volviendo a buscar partida...',
+        });
+      }
+    }
+    this._requeuePair(p1, p2);
+  }
+
   async _processMatch(pair) {
     const { p1, p2, effectiveCategoryId, effectiveConfig } = pair;
+    const fullConfig = { ...effectiveConfig, gameType: 'domino' };
 
     this.queueStore.removePlayer(p1.socketId);
     this.queueStore.removePlayer(p2.socketId);
 
-    const room = this.roomManager.createRoomWithConfig(effectiveCategoryId, {
-      ...effectiveConfig,
-      gameType: 'domino',
-    });
+    const roomId = randomUUID();
 
+    p1.socket.data.pr = p1.pr;
+    p2.socket.data.pr = p2.pr;
+
+    const feePlayers = [
+      { userId: p1.userId, socketId: p1.socketId, socket: p1.socket },
+      { userId: p2.userId, socketId: p2.socketId, socket: p2.socket },
+    ];
+
+    if (!p1.socket?.connected || !p2.socket?.connected) {
+      console.warn(
+        '[MatchmakingQueue] Cobro omitido: socket desconectado antes del cobro; re-encolando solo conectados.',
+      );
+      this._requeuePair(p1, p2);
+      return;
+    }
+
+    let result;
     try {
-      p1.socket.data.pr = p1.pr;
-      p2.socket.data.pr = p2.pr;
+      result = await chargeEntryFees({
+        roomId,
+        config: fullConfig,
+        feePlayers,
+      });
+    } catch (err) {
+      console.error('[MatchmakingQueue] chargeEntryFees excepción:', err.message);
+      this._requeuePair(p1, p2);
+      return;
+    }
+
+    if (!result.success) {
+      this._emitChargeFailureAndRequeue(p1, p2, result.failedUserIds);
+      console.log(
+        `[MatchmakingQueue] Cobro fallido (sin sala). roomId=${roomId} fallidos=[${result.failedUserIds.join(', ')}]`,
+      );
+      return;
+    }
+
+    let room;
+    try {
+      room = this.roomManager.createRoomWithConfigAndId(
+        roomId,
+        effectiveCategoryId,
+        fullConfig,
+      );
       room.addPlayer(p1.socket);
       room.addPlayer(p2.socket);
     } catch (err) {
-      console.error('[MatchmakingQueue] Error añadiendo jugadores a sala:', err.message);
-      this.roomManager.delete(room.roomId);
+      console.error('[MatchmakingQueue] Error creando sala tras cobro OK:', err.message);
+      await refundBetsForRoom(
+        result.chargeDetails,
+        fullConfig.entryFee_subunits,
+        roomId,
+      );
+      this._requeuePair(p1, p2);
+      this.roomManager.delete(roomId);
       return;
     }
 
@@ -269,67 +449,46 @@ class MatchmakingQueue {
     p2.socket.data.inQueue = false;
 
     room.lock();
-    console.log(`[MatchmakingQueue] Pareja encontrada: userId=${p1.userId} vs userId=${p2.userId} → sala ${room.roomId} [${effectiveCategoryId}]`);
+    console.log(
+      `[MatchmakingQueue] Pareja encontrada: userId=${p1.userId} vs userId=${p2.userId} → sala ${room.roomId} [${effectiveCategoryId}]`,
+    );
 
-    const result = await chargeEntryFees(room);
+    room.start();
+    this.roomManager.startGame(room);
+    room.dominoLiveContext = { nsp: this.nsp, roomManager: this.roomManager };
 
-    if (result.success) {
-      room.start();
-      this.roomManager.startGame(room);
-      room.dominoLiveContext = { nsp: this.nsp, roomManager: this.roomManager };
-
-      for (const b of result.balancesAfter) {
-        const player = room.players.find((p) => p.socketId === b.socketId);
-        if (!player) continue;
-        player.socket.emit('entry_fee_charged', {
-          message:          '¡Entrada cobrada con éxito. Buena suerte!',
-          balance_subunits: b.balance_subunits,
-          piedras:          b.piedras,
-        });
-        player.socket.emit('balance_updated', {
-          balance_subunits: b.balance_subunits,
-          piedras:          b.piedras,
-        });
-      }
-
-      const enrichedPlayers = await enrichPlayersWithUsernames(room);
-      for (const player of room.players) {
-        player.socket.emit('match_found', {
-          roomId:     room.roomId,
-          categoryId: room.modeId,
-          config:     room.config,
-          players:    enrichedPlayers,
-        });
-        player.socket.emit('game_start', {
-          roomId:     room.roomId,
-          categoryId: room.modeId,
-          config:     room.config,
-          players:    enrichedPlayers,
-          state:      room.game.getState(player.userId),
-        });
-      }
-
-      console.log(`[MatchmakingQueue] Partida iniciada en sala ${room.roomId} [${effectiveConfig.label}]`);
-    } else {
-      const { failedUserIds } = result;
-      const playersSnapshot = [...room.players];
-
-      for (const player of playersSnapshot) {
-        if (failedUserIds.includes(player.userId)) {
-          player.socket.emit('insufficient_balance', {
-            message: 'No tienes saldo suficiente. La partida fue cancelada.',
-          });
-        } else {
-          player.socket.emit('queue_reset', {
-            message: 'Un jugador no tenía saldo. Volviendo a buscar partida...',
-          });
-        }
-        player.socket.data.currentRoom = null;
-      }
-
-      this.roomManager.delete(room.roomId);
-      console.log(`[MatchmakingQueue] Sala ${room.roomId} desmontada. Fallidos: [${failedUserIds.join(', ')}]`);
+    for (const b of result.balancesAfter) {
+      const player = room.players.find((p) => p.socketId === b.socketId);
+      if (!player) continue;
+      player.socket.emit('entry_fee_charged', {
+        message:          '¡Entrada cobrada con éxito. Buena suerte!',
+        balance_subunits: b.balance_subunits,
+        piedras:          b.piedras,
+      });
+      player.socket.emit('balance_updated', {
+        balance_subunits: b.balance_subunits,
+        piedras:          b.piedras,
+      });
     }
+
+    const enrichedPlayers = await enrichPlayersWithUsernames(room);
+    for (const player of room.players) {
+      player.socket.emit('match_found', {
+        roomId:     room.roomId,
+        categoryId: room.modeId,
+        config:     room.config,
+        players:    enrichedPlayers,
+      });
+      player.socket.emit('game_start', {
+        roomId:     room.roomId,
+        categoryId: room.modeId,
+        config:     room.config,
+        players:    enrichedPlayers,
+        state:      room.game.getState(player.userId),
+      });
+    }
+
+    console.log(`[MatchmakingQueue] Partida iniciada en sala ${room.roomId} [${effectiveConfig.label}]`);
   }
 
   /**
@@ -344,7 +503,7 @@ class MatchmakingQueue {
     const primaryPlayers = this.queueStore.getPlayersByCategory(categoryId);
     const bronceCount = this.queueStore.getPlayersByCategory('BRONCE').length;
 
-    const canFormCrossLeague = categoryId === 'PLATA' && primaryPlayers.length >= 1 && bronceCount >= 1 && primaryPlayers.some((p) => p.allowLowerLeague);
+    const canFormCrossLeague = categoryId === 'PLATA' && primaryPlayers.length >= 1 && bronceCount >= 1 && primaryPlayers.some((p) => p.allowCrossLeague ?? p.allowLowerLeague);
     const effectivePool = primaryPlayers.length + (canFormCrossLeague ? bronceCount : 0);
     const returnEarly = effectivePool < 2;
 
@@ -373,7 +532,7 @@ class MatchmakingQueue {
     while (matchesDone < maxMatches) {
       const primary = this.queueStore.getPlayersByCategory(categoryId);
       const bronceInSync = this.queueStore.getPlayersByCategory('BRONCE').length;
-      const canFormPair = primary.length >= 2 || (categoryId === 'PLATA' && primary.length >= 1 && bronceInSync >= 1 && primary.some((p) => p.allowLowerLeague));
+      const canFormPair = primary.length >= 2 || (categoryId === 'PLATA' && primary.length >= 1 && bronceInSync >= 1 && primary.some((p) => p.allowCrossLeague ?? p.allowLowerLeague));
 
       if (!canFormPair) break;
 
@@ -407,4 +566,5 @@ module.exports = {
   PR_EXPANSION_PER_SECOND,
   MAX_MATCHES_PER_TICK,
   LARGE_QUEUE_THRESHOLD,
+  MAX_PR_GAP,
 };

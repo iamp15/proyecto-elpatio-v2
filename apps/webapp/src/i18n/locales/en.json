@@ -4,8 +4,15 @@
     "waiting_players": "Waiting for opponents...",
     "chooseCategory": "Choose your category",
     "allowLowerLeague": "Allow matching with lower leagues (Quick match)",
+    "crossLeagueToggle": "Enable cross-league matching",
+    "crossLeagueHelpAria": "About cross-league matching",
+    "crossLeagueHelpTitle": "What is cross-league matching?",
+    "crossLeagueHelpBody": "When this is on, matchmaking can pair you with opponents outside the strict PR band of the queue you picked.\n\nFor example: in lower leagues you may face higher-PR players who chose that queue; in higher leagues, when the system allows it, you may also face players from the lower league’s queue.\n\nWhen it’s off, search stays tighter to your queue’s PR ceiling.",
+    "crossLeagueHelpClose": "Got it",
     "entry": "Entry",
-    "estimatedPrize": "Est. prize",
+    "couponsAvailable": "(You have: x{{count}})",
+    "originalStoneCost": "Regular cost: {{count}}",
+    "useCoupon": "Use 1 Coupon",
     "play": "Play",
     "comingSoon": "Coming soon",
     "locked": "Locked",
@@ -27,7 +34,10 @@
     "balanceLoadingShort": "Loading balance…",
     "balanceUnavailableShort": "Could not verify balance. Please try again.",
     "errorQueueReset": "The match was cancelled. Trying again…",
-    "errorServer": "Server error."
+    "errorServer": "Server error.",
+    "leaguesEmpty": "Leagues did not load. Make sure the game server is running, or tap retry.",
+    "retryLeagues": "Reload leagues",
+    "loadingLeagues": "Loading leagues from server…"
   },
   "game": {
     "your_turn": "Your Turn",
@@ -94,7 +104,9 @@
     "pts": "pts",
     "pointsExplanation": "Points = tiles left in hand. Less is better.",
     "playAgain": "Play again",
-    "backToLobby": "Back to Lobby"
+    "backToLobby": "Back to Lobby",
+    "vipTag": "VIP",
+    "vipBonusHint": "VIP subscription bonus (rake or prestige RP)"
   },
   "gameOptions": {
     "title": "Options",
@@ -175,7 +187,8 @@
     "bet": "Bet",
     "win": "Match Won",
     "refund": "Refund",
-    "commission": "Commission"
+    "commission": "Commission",
+    "feePaidWithCoupon": "Entry paid with coupon (Bronze league)"
   },
   "chat": {
     "hello": "Hello!",
@@ -195,6 +208,8 @@
       "tournamentsSubtitle": "Join special events",
       "store": "Shop",
       "storeSubtitle": "Get stones and cosmetics",
+      "backpack": "Backpack",
+      "backpackSubtitle": "Consumables and cosmetics you own",
       "profile": "Profile",
       "profileSubtitle": "View stats and inventory"
     },

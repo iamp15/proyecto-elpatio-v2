@@ -1,9 +1,8 @@
 require('dotenv').config();
 const http = require('http');
 const { Server } = require('socket.io');
-const { connectDB } = require('@el-patio/database');
+const { connectDB, AppConfigManager } = require('@el-patio/database');
 const { createDominoNamespace } = require('./src/namespaces/domino');
-const configManager = require('./src/config/ConfigManager');
 
 /** Lee y parsea el body JSON de una request. Devuelve {} si vacío o inválido. */
 function readBody(req) {
@@ -50,16 +49,17 @@ const server = http.createServer(async (req, res) => {
       const gameId = body?.gameId ?? null;
 
       if (gameId) {
-        await configManager.loadGameConfig(gameId);
+        // En el nuevo sistema, recargar la config global recarga todo
+        await AppConfigManager.refreshConfig();
       } else {
-        await configManager.loadAllConfigs();
+        await AppConfigManager.refreshConfig();
       }
 
       // Prepara el resumen de juegos recargados
-      const targetGameIds = gameId ? [gameId] : configManager.gameIds;
+      const targetGameIds = gameId ? [gameId] : AppConfigManager.gameIds;
       const games = targetGameIds.map((gid) => ({
         gameId: gid,
-        ranks: configManager.getAllRanks(gid).map((r) => ({
+        ranks: AppConfigManager.getAllRanks(gid).map((r) => ({
           categoryId:        r.categoryId,
           label:             r.label,
           minPR:             r.minPR,
@@ -74,13 +74,52 @@ const server = http.createServer(async (req, res) => {
         ok:      true,
         message: gameId
           ? `Config de '${gameId}' recargada.`
-          : `Todos los juegos recargados: [${configManager.gameIds.join(', ')}]`,
+          : `Todos los juegos recargados: [${AppConfigManager.gameIds.join(', ')}]`,
         games,
       }));
     } catch (err) {
       console.error('[admin/refresh-config] Error:', err.message);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Error al recargar la configuración.' }));
+    }
+    return;
+  }
+
+  // ── Admin: activar/desactivar reglas de producción de matchmaking ────────
+  if (req.url === '/admin/matchmaking/production-rules' && req.method === 'POST') {
+    const authHeader = req.headers['authorization'] ?? '';
+    const secret = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+    if (secret !== ADMIN_SECRET) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
+    try {
+      const body = await readBody(req);
+      if (typeof body?.enabled !== 'boolean') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Body inválido. Debes enviar { "enabled": true|false }',
+        }));
+        return;
+      }
+
+      const enabled = await AppConfigManager.setMatchmakingProductionRulesEnabled(body.enabled);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        matchmaking: { productionRulesEnabled: enabled },
+        message: enabled
+          ? 'Reglas de producción de matchmaking ACTIVADAS.'
+          : 'Reglas de producción de matchmaking DESACTIVADAS.',
+      }));
+    } catch (err) {
+      console.error('[admin/matchmaking/production-rules] Error:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No se pudo actualizar el estado de production-rules.' }));
     }
     return;
   }
@@ -107,7 +146,7 @@ async function bootstrap() {
   }
 
   await connectDB(MONGO_URI);
-  await configManager.loadAllConfigs();
+  await AppConfigManager.loadConfigFromDB();
 
   createDominoNamespace(io);
 

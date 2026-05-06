@@ -19,12 +19,13 @@ function SkeletonItem({ isLast }) {
 }
 
 const TYPE_KEYS = {
-  DEPOSIT:    'walletActivity.deposit',
-  WITHDRAW:   'walletActivity.withdraw',
-  BET:        'walletActivity.bet',
-  WIN:        'walletActivity.win',
-  REFUND:     'walletActivity.refund',
-  COMMISSION: 'walletActivity.commission',
+  DEPOSIT:               'walletActivity.deposit',
+  WITHDRAW:              'walletActivity.withdraw',
+  BET:                   'walletActivity.bet',
+  WIN:                   'walletActivity.win',
+  REFUND:                'walletActivity.refund',
+  COMMISSION:            'walletActivity.commission',
+  FEE_PAID_WITH_COUPON:  'walletActivity.feePaidWithCoupon',
 };
 
 function formatDateTime(iso) {
@@ -42,9 +43,9 @@ function formatDateTime(iso) {
 
 function formatAmount(amount_subunits) {
   if (amount_subunits == null || Number.isNaN(Number(amount_subunits))) return '—';
-  const piedras = Number(amount_subunits) / 100;
-  const sign = piedras > 0 ? '+' : '';
-  return `${sign}${piedras % 1 === 0 ? piedras : piedras.toFixed(2)}`;
+  const stones = Math.floor(Number(amount_subunits) / 100);
+  const sign = stones > 0 ? '+' : '';
+  return `${sign}${stones}`;
 }
 
 export default function WalletActivitySection() {
@@ -70,9 +71,15 @@ export default function WalletActivitySection() {
 
         {!transactionsLoading && transactions.map((tx, idx) => {
           const isLast = idx === transactions.length - 1;
+          const isCouponEntry = tx.type === 'FEE_PAID_WITH_COUPON';
           const isPositive = Number(tx.amount_subunits) > 0;
-          const Icon = isPositive ? IconArrowUp : IconArrowDown;
+          const Icon = isCouponEntry || isPositive ? IconArrowUp : IconArrowDown;
           const label = TYPE_KEYS[tx.type] ? t(TYPE_KEYS[tx.type]) : tx.type;
+          const iconModifier = isCouponEntry
+            ? ` ${styles.itemIconPositive}`
+            : isPositive
+              ? ` ${styles.itemIconPositive}`
+              : ` ${styles.itemIconNegative}`;
 
           return (
             <div
@@ -80,7 +87,7 @@ export default function WalletActivitySection() {
               className={`${styles.item}${isLast ? ` ${styles.itemLast}` : ''}`}
             >
               <span
-                className={`${styles.itemIcon}${isPositive ? ` ${styles.itemIconPositive}` : ` ${styles.itemIconNegative}`}`}
+                className={`${styles.itemIcon}${iconModifier}`}
                 aria-hidden
               >
                 <Icon size={16} />

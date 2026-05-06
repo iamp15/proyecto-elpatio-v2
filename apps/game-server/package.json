@@ -5,7 +5,8 @@
   "main": "socket-handler.js",
   "scripts": {
     "dev": "nodemon socket-handler.js",
-    "start": "node socket-handler.js"
+    "start": "node socket-handler.js",
+    "test:matchmaking": "node scripts/test-matchmaking-rules.js"
   },
   "dependencies": {
     "@el-patio/database": "*",

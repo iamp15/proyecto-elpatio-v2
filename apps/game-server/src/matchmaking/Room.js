@@ -26,10 +26,11 @@ const ROOM_STATUS = Object.freeze({
 class Room {
   /**
    * @param {string} modeId
-   * @param {{ maxPlayers: number, targetPoints: number, entryFee_subunits: number }} config
+   * @param {{ maxPlayers: number, targetPoints: number, entryFee_subunits: number, categoryId: string, gameType?: string }} config
+   * @param {string|null} [explicitRoomId] - Si se pasa (p. ej. reservado antes del cobro), se usa en lugar de generar uno nuevo.
    */
-  constructor(modeId, config) {
-    this.roomId   = randomUUID();
+  constructor(modeId, config, explicitRoomId = null) {
+    this.roomId   = explicitRoomId ?? randomUUID();
     this.modeId   = modeId;
     this.config   = config;
     this.players  = []; // [{ userId, socketId, socket, pr }]

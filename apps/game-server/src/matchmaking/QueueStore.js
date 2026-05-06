@@ -19,17 +19,53 @@ class InMemoryQueueStore {
   }
 
   /**
+   * Indica si el userId ya está en la cola en cualquier categoría (todos los buckets).
+   * @param {number} userId
+   * @returns {boolean}
+   */
+  isUserInQueue(userId) {
+    for (const bucket of this._buckets.values()) {
+      for (const player of bucket.values()) {
+        if (player.userId === userId) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Añade un jugador al bucket de su categoría.
-   * @param {object} player - { userId, socketId, socket, pr, categoryId, allowLowerLeague, joinTime }
+   * Rechaza duplicados por userId (multisesión): no sustituye otra entrada aunque el socketId sea distinto.
+   * @param {object} player - { userId, socketId, socket, pr, categoryId, allowCrossLeague, allowLowerLeague, joinTime }
    * @returns {{ ok: boolean, error?: string }}
    */
+  /**
+   * @param {number} userId
+   * @returns {object | null}
+   */
+  _getPlayerByUserId(userId) {
+    for (const bucket of this._buckets.values()) {
+      for (const p of bucket.values()) {
+        if (p.userId === userId) return p;
+      }
+    }
+    return null;
+  }
+
   addPlayer(player) {
     const { userId, socketId, categoryId } = player;
     if (!categoryId || !this._buckets.has(categoryId)) {
       return { ok: false, error: `Categoría inválida: ${categoryId}` };
     }
-    if (this.hasPlayer(userId)) {
-      return { ok: false, error: 'Ya estás en la cola.' };
+    if (this.isUserInQueue(userId)) {
+      const existing = this._getPlayerByUserId(userId);
+      if (existing && existing.socketId === socketId) {
+        return { ok: false, error: 'Ya estás en la cola.' };
+      }
+      return {
+        ok: false,
+        error:
+          'Ya hay una sesión en cola con este usuario desde otro dispositivo o pestaña.',
+      };
     }
     const bucket = this._buckets.get(categoryId);
     bucket.set(socketId, player);
@@ -52,6 +88,23 @@ class InMemoryQueueStore {
   }
 
   /**
+   * Elimina cualquier entrada de este userId (p. ej. socket viejo tras reconexión).
+   * @param {number} userId
+   * @returns {boolean}
+   */
+  removePlayerByUserId(userId) {
+    for (const bucket of this._buckets.values()) {
+      for (const [socketId, p] of bucket.entries()) {
+        if (p.userId === userId) {
+          bucket.delete(socketId);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Devuelve copia del array de jugadores en la categoría.
    * @param {string} categoryId
    * @returns {object[]}
@@ -63,17 +116,12 @@ class InMemoryQueueStore {
   }
 
   /**
-   * Comprueba si el userId ya está en alguna cola.
+   * Comprueba si el userId ya está en alguna cola (alias de isUserInQueue).
    * @param {number} userId
    * @returns {boolean}
    */
   hasPlayer(userId) {
-    for (const bucket of this._buckets.values()) {
-      for (const player of bucket.values()) {
-        if (player.userId === userId) return true;
-      }
-    }
-    return false;
+    return this.isUserInQueue(userId);
   }
 
   /**

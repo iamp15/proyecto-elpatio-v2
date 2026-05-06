@@ -4,6 +4,7 @@ import { motion, useAnimation } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import LightningBolt from './LightningBolt';
 import RankBadge from './RankBadge';
+import { isVipUser, VIP_HIGHLIGHT_GREEN } from '../../../../lib/vipUserUi';
 
 /** Colores PR por rango (metálicos). */
 const RANK_COLORS = {
@@ -26,8 +27,8 @@ const RANK_GLOW = {
  * Se muestra como pantalla completa durante ~5s antes de revelar el tablero.
  *
  * @param {{
- *   playerMe:            { displayName: string, pr: number, rank?: string },
- *   playerOpponent:      { displayName: string, pr: number, rank?: string },
+ *   playerMe:            { displayName: string, pr: number, rank?: string, vip_status?: { is_vip?: boolean } },
+ *   playerOpponent:      { displayName: string, pr: number, rank?: string, vip_status?: { is_vip?: boolean } },
  *   onAnimationComplete: () => void,
  *   duration?:           number,
  * }} props
@@ -65,9 +66,9 @@ export default function MatchFoundOverlay({
     textShadow:   `0 0 8px ${(RANK_COLORS[rank] ?? RANK_COLORS.BRONCE)}88`,
   });
 
-  const nameStyle = (rank) => {
+  const nameStyle = (rank, player) => {
     const glow = RANK_GLOW[rank] ?? RANK_GLOW.BRONCE;
-    return {
+    const base = {
       fontSize:     'clamp(2rem, 6vw, 3.5rem)',
       fontWeight:    900,
       color:        '#ffffff',
@@ -75,6 +76,14 @@ export default function MatchFoundOverlay({
       filter:       `drop-shadow(0 0 12px ${glow}44)`,
       lineHeight:   1.1,
       wordBreak:    'break-word',
+    };
+    if (!isVipUser(player)) return base;
+    return {
+      ...base,
+      color:      VIP_HIGHLIGHT_GREEN,
+      fontWeight: 900,
+      textShadow: `0 0 18px rgba(34,197,94,0.7), 0 0 26px ${glow}55, 0 2px 6px rgba(0,0,0,0.75)`,
+      filter:     `drop-shadow(0 0 14px rgba(74,222,128,0.5))`,
     };
   };
 
@@ -118,7 +127,7 @@ export default function MatchFoundOverlay({
         {/* Nombre arriba — blanco puro con resplandor de liga */}
         <motion.span
           className="text-center text-white inline-block"
-          style={nameStyle(playerOpponent?.rank)}
+          style={nameStyle(playerOpponent?.rank, playerOpponent)}
           animate={{ scale: [1, 1.04, 1] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         >
@@ -194,7 +203,7 @@ export default function MatchFoundOverlay({
         {/* Nombre arriba — blanco puro con resplandor de liga */}
         <motion.span
           className="text-center text-white inline-block"
-          style={nameStyle(playerMe?.rank)}
+          style={nameStyle(playerMe?.rank, playerMe)}
           animate={{ scale: [1, 1.04, 1] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         >

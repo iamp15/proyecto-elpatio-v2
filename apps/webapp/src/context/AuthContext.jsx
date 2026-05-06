@@ -2,9 +2,31 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, u
 import { createApiClient } from '../api/client.js';
 import { fetchBalance } from '../api/balance.js';
 import { fetchWalletBalance, fetchWalletHistory } from '../api/wallet.js';
+import { useDailyRewardModal } from './DailyRewardModalContext.jsx';
 
 const STORAGE_KEYS = { token: 'el_patio_token', user: 'el_patio_user' };
-const MOCK_USER_ID = Number(import.meta.env.VITE_MOCK_USER_ID) || 12345678;
+const DEFAULT_AVATAR_ID = 'avatar_default';
+const DEFAULT_FRAME_ID = 'frame_bronce';
+const DEFAULT_BADGE_ID = 'badge_bronce';
+/** ID Telegram numérico para login mock en local. */
+const DEFAULT_MOCK_USER_ID = 11111111;
+const MOCK_USER_ID_RAW = Number(import.meta.env.VITE_MOCK_USER_ID);
+const MOCK_USER_ID =
+  Number.isFinite(MOCK_USER_ID_RAW) && MOCK_USER_ID_RAW > 0
+    ? MOCK_USER_ID_RAW
+    : DEFAULT_MOCK_USER_ID;
+
+/** Misma forma que el default en packages/database/models/User.js (vip_status) */
+function defaultVipStatus() {
+  return { is_vip: false, start_date: null, expiresAt: null };
+}
+
+function vipStatusFromApi(raw) {
+  if (raw && typeof raw === 'object') {
+    return { ...defaultVipStatus(), ...raw };
+  }
+  return defaultVipStatus();
+}
 
 function getTelegramWebApp() {
   if (typeof window === 'undefined') return null;
@@ -64,9 +86,21 @@ function clearStoredAuth() {
   } catch (_) {}
 }
 
+function getBronzeDailyRewardAmount(dailyReward) {
+  if (!dailyReward?.refilled) return 0;
+  const amount = Number(dailyReward.amount || 0);
+  if (amount > 0) return amount;
+
+  const bronzeReward = Array.isArray(dailyReward.rewards)
+    ? dailyReward.rewards.find((reward) => reward?.itemId === 'coupon_bronze')
+    : null;
+  return Number(bronzeReward?.quantity || 0);
+}
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const { showDailyRewardModal } = useDailyRewardModal();
   const stored = readStoredAuth();
   const [token, setToken] = useState(stored.token);
   const [user, setUser] = useState(stored.user);
@@ -82,10 +116,11 @@ export function AuthProvider({ children }) {
   // true mientras no hayamos sincronizado el perfil con la BD (evita mostrar datos stale)
   const [isSyncingProfile, setIsSyncingProfile] = useState(!!stored.token);
   const loginAttempted = useRef(false);
+  const dailyRewardModalKeys = useRef(new Set());
   /** true tras resolver login automático (Telegram/dev) o si no aplica; el splash espera esto. */
   const [authBootComplete, setAuthBootComplete] = useState(false);
 
-  const clearAndRedirect = useCallback(() => {
+  const clearAuthState = useCallback(() => {
     setToken(null);
     setUser(null);
     setBalance(null);
@@ -94,11 +129,28 @@ export function AuthProvider({ children }) {
     setTransactions([]);
     setTransactionsError(null);
     clearStoredAuth();
-    if (typeof window !== 'undefined') window.location.href = '/';
   }, []);
+
+  const clearAndRedirect = useCallback(() => {
+    clearAuthState();
+    if (typeof window !== 'undefined') window.location.href = '/';
+  }, [clearAuthState]);
 
   const getToken = useCallback(() => token, [token]);
   const api = useMemo(() => createApiClient(getToken, clearAndRedirect), [getToken, clearAndRedirect]);
+
+  const notifyDailyReward = useCallback((data) => {
+    const amount = getBronzeDailyRewardAmount(data?.dailyReward);
+    if (amount <= 0) return;
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const userKey = data?.user?.id ?? 'unknown';
+    const rewardKey = `${todayKey}:${userKey}:coupon_bronze:${amount}`;
+    if (dailyRewardModalKeys.current.has(rewardKey)) return;
+    dailyRewardModalKeys.current.add(rewardKey);
+
+    showDailyRewardModal({ amount });
+  }, [showDailyRewardModal]);
 
   const login = useCallback(async () => {
     const telegramCtx = getTelegramLogContext();
@@ -119,11 +171,17 @@ export function AuthProvider({ children }) {
           photo_url:    data.user.photo_url  ?? twaUser.photo_url  ?? null,
           pr:           data.user.pr         ?? 1000,
           rank:         data.user.rank       ?? 'BRONCE',
+          avatar_id:    data.user.avatar_id  ?? DEFAULT_AVATAR_ID,
+          frame_id:     data.user.frame_id   ?? DEFAULT_FRAME_ID,
+          badge_id:     data.user.badge_id   ?? DEFAULT_BADGE_ID,
+          pendingPromotion: data.user.pendingPromotion ?? null,
+          vip_status:   vipStatusFromApi(data.user.vip_status),
         } : null;
         setToken(data.token);
         setUser(userData);
         localStorage.setItem(STORAGE_KEYS.token, data.token);
         if (userData) localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(userData));
+        notifyDailyReward(data);
         console.log('[Auth] Login exitoso (Telegram):', userData);
         return;
       }
@@ -138,11 +196,17 @@ export function AuthProvider({ children }) {
           photo_url:    data.user.photo_url  ?? null,
           pr:           data.user.pr         ?? 1000,
           rank:         data.user.rank       ?? 'BRONCE',
+          avatar_id:    data.user.avatar_id  ?? DEFAULT_AVATAR_ID,
+          frame_id:     data.user.frame_id   ?? DEFAULT_FRAME_ID,
+          badge_id:     data.user.badge_id   ?? DEFAULT_BADGE_ID,
+          pendingPromotion: data.user.pendingPromotion ?? null,
+          vip_status:   vipStatusFromApi(data.user.vip_status),
         } : null;
         setToken(data.token);
         setUser(userData);
         localStorage.setItem(STORAGE_KEYS.token, data.token);
         if (userData) localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(userData));
+        notifyDailyReward(data);
         console.log('[Auth] Login exitoso (mock):', userData);
       }
     } catch (err) {
@@ -151,7 +215,7 @@ export function AuthProvider({ children }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [api]);
+  }, [api, notifyDailyReward]);
 
   const logout = useCallback(() => {
     setToken(null);
@@ -170,7 +234,10 @@ export function AuthProvider({ children }) {
     setBalanceError(null);
     try {
       const data = await fetchBalance(api.request);
-      setBalance(data.piedras ?? null);
+      const p = data.piedras;
+      setBalance(
+        p != null && Number.isFinite(Number(p)) ? Math.floor(Number(p)) : null,
+      );
       setBalanceSubunits(
         typeof data.balance_subunits === 'number' ? data.balance_subunits : null,
       );
@@ -192,7 +259,10 @@ export function AuthProvider({ children }) {
         fetchWalletBalance(api.request),
         fetchWalletHistory(api.request),
       ]);
-      setBalance(balanceData.piedras ?? null);
+      const wp = balanceData.piedras;
+      setBalance(
+        wp != null && Number.isFinite(Number(wp)) ? Math.floor(Number(wp)) : null,
+      );
       setBalanceSubunits(
         typeof balanceData.balance_subunits === 'number' ? balanceData.balance_subunits : null,
       );
@@ -227,20 +297,28 @@ export function AuthProvider({ children }) {
           username:        data.user.username ?? (user ?? {}).username ?? null,
           first_name:      data.user.first_name ?? (user ?? {}).first_name ?? null,
           nickname:        data.user.nickname ?? (user ?? {}).nickname ?? null,
-          avatar_id:       data.user.redirect_to ?? 'telegram',
-          frame_id:        data.user.frame_id ?? 'rank',
-          badge_id:        data.user.badge_id ?? 'default',
+          avatar_id:       data.user.avatar_id ?? DEFAULT_AVATAR_ID,
+          frame_id:        data.user.frame_id ?? DEFAULT_FRAME_ID,
+          badge_id:        data.user.badge_id ?? DEFAULT_BADGE_ID,
+          pendingPromotion: data.user.pendingPromotion ?? null,
+          vip_status:      vipStatusFromApi(data.user.vip_status),
         };
         setUser(fresh);
         try { localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(fresh)); } catch (_) {}
+        notifyDailyReward(data);
       }
     } catch (err) {
+      if (err?.status === 404) {
+        console.warn('[Auth] Perfil guardado no existe; limpiando sesión local para reloguear.');
+        clearAuthState();
+        return;
+      }
       console.warn('[Auth] refreshUser falló:', err?.message);
     } finally {
       setIsSyncingProfile(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, api]);
+  }, [token, api, notifyDailyReward, clearAuthState]);
 
   // Sincroniza el perfil con la BD al arrancar (si ya hay token en localStorage)
   useEffect(() => {
@@ -312,29 +390,6 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  /** Actualiza los cosméticos (avatar, marco, badge) en el backend y sincroniza localmente. */
-  const updateCosmetics = useCallback(async (avatar_id, frame_id, badge_id) => {
-    if (!api) throw new Error('No hay cliente API');
-    try {
-      const body = {};
-      if (avatar_id !== undefined) body.avatar_id = avatar_id;
-      if (frame_id !== undefined) body.frame_id = frame_id;
-      if (badge_id !== undefined) body.badge_id = badge_id;
-      const data = await api.request('PATCH', '/auth/profile/cosmetics', { body });
-      if (data?.user) {
-        updateUser({
-          avatar_id: data.user.avatar_id,
-          frame_id: data.user.frame_id,
-          badge_id: data.user.badge_id,
-        });
-      }
-      return data;
-    } catch (err) {
-      console.error('[Auth] Error actualizando cosméticos:', err);
-      throw err;
-    }
-  }, [api, updateUser]);
-
   const isAuthenticated = !!token;
   const value = useMemo(
     () => ({
@@ -345,7 +400,6 @@ export function AuthProvider({ children }) {
       login,
       logout,
       updateUser,
-      updateCosmetics,
       refreshUser,
       balance,
       balanceSubunits,
@@ -362,7 +416,7 @@ export function AuthProvider({ children }) {
     }),
     [
       user, token, isAuthenticated, isSyncingProfile,
-      login, logout, updateUser, updateCosmetics, refreshUser,
+      login, logout, updateUser, refreshUser,
       balance, balanceSubunits, refreshBalance, refreshWallet, transactions,
       authLoading, balanceLoading, balanceError,
       transactionsLoading, transactionsError,

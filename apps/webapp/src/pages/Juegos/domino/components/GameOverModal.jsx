@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { resolveDisplayName } from '../../../../lib/userDisplayName';
+import { withVipDisplayNameStyle } from '../../../../lib/vipUserUi';
 
 /**
  * Partícula de brillo para la animación de victoria.
@@ -43,6 +44,30 @@ const PARTICLES = [
 ];
 
 /**
+ * Muestra +base y, si hay bono VIP, +extra resaltado (rake / PR prestigio).
+ */
+function VipSplitReward({ base, vipBonus, classNameBase }) {
+  const { t } = useTranslation();
+  const b = Math.floor(Number(base) || 0);
+  const v = Math.floor(Number(vipBonus) || 0);
+  if (v <= 0) {
+    return <span className={`text-2xl font-black ${classNameBase}`}>+{b}</span>;
+  }
+  return (
+    <span className={`text-2xl font-black ${classNameBase}`}>
+      +{b}
+      <span
+        className="text-amber-400 font-black text-lg align-baseline ml-1.5"
+        style={{ textShadow: '0 0 12px rgba(251, 191, 36, 0.35)' }}
+        title={t('gameOverModal.vipBonusHint')}
+      >
+        +{v} {t('gameOverModal.vipTag')}
+      </span>
+    </span>
+  );
+}
+
+/**
  * Modal de fin de partida.
  * Se muestra como overlay sobre el tablero, con backdrop blur.
  *
@@ -52,7 +77,10 @@ const PARTICLES = [
  * @param {{
  *   winnerId:     number,
  *   myUserId:     number,
- *   prize_piedras: number,
+ *   prGainBase?: number,
+ *   prVipBonus?: number,
+ *   prizePiedrasBase?: number,
+ *   vipPiedrasBonus?: number,
  *   finalScores:  Object.<number, number>,
  *   playerOrder:  number[],
  *   onLobby:      () => void,
@@ -61,12 +89,15 @@ const PARTICLES = [
 export default function GameOverModal({
   winnerId,
   myUserId,
-  prize_piedras,
   finalScores = {},
   playerOrder = [],
   players = [],
   prDelta = 0,
   currencyDelta = 0,
+  prGainBase = 0,
+  prVipBonus = 0,
+  prizePiedrasBase = 0,
+  vipPiedrasBonus = 0,
   systemMessage = null,
   onLobby,
 }) {
@@ -202,7 +233,9 @@ export default function GameOverModal({
                 <div className="flex justify-around items-center bg-black/30 p-4 rounded-lg mb-4">
                   <div className="text-center">
                     <p className="text-sm text-gray-300">
-                      {resolveDisplayName(myPlayer, t('gameBoard.you'))}
+                      <span style={withVipDisplayNameStyle(myPlayer, {})}>
+                        {resolveDisplayName(myPlayer, t('gameBoard.you'))}
+                      </span>
                     </p>
                     <p className="text-2xl font-bold text-white mt-1">
                       {finalScores[myUserId] ?? 0} {t('gameOverModal.pts')}
@@ -213,7 +246,9 @@ export default function GameOverModal({
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-300">
-                      {resolveDisplayName(opponentPlayer, t('gameBoard.rival'))}
+                      <span style={withVipDisplayNameStyle(opponentPlayer, {})}>
+                        {resolveDisplayName(opponentPlayer, t('gameBoard.rival'))}
+                      </span>
                     </p>
                     <p className="text-2xl font-bold text-white mt-1">
                       {opponentPlayer ? (finalScores[opponentPlayer.userId] ?? 0) : 0} {t('gameOverModal.pts')}
@@ -232,18 +267,34 @@ export default function GameOverModal({
             >
               <div className="text-center">
                 <p className="text-[10px] text-gray-400 uppercase tracking-[0.16em]">Rating (PR)</p>
-                <p className={`text-2xl font-black ${isWinner ? 'text-green-400' : 'text-red-500'}`}>
-                  {prDelta > 0 ? '+' : ''}{prDelta}
-                </p>
+                {isWinner && Math.floor(Number(prVipBonus) || 0) > 0 ? (
+                  <VipSplitReward
+                    base={prGainBase}
+                    vipBonus={prVipBonus}
+                    classNameBase="text-green-400"
+                  />
+                ) : (
+                  <p className={`text-2xl font-black ${isWinner ? 'text-green-400' : 'text-red-500'}`}>
+                    {prDelta > 0 ? '+' : ''}{prDelta}
+                  </p>
+                )}
               </div>
               {isWinner && (
                 <div className="text-center">
                   <p className="text-[10px] text-gray-400 uppercase tracking-[0.16em]">
                     {t('gameOverModal.stones')}
                   </p>
-                  <p className="text-2xl font-black text-green-400">
-                    +{currencyDelta}
-                  </p>
+                  {Math.floor(Number(vipPiedrasBonus) || 0) > 0 ? (
+                    <VipSplitReward
+                      base={prizePiedrasBase}
+                      vipBonus={vipPiedrasBonus}
+                      classNameBase="text-green-400"
+                    />
+                  ) : (
+                    <p className="text-2xl font-black text-green-400">
+                      +{Math.floor(Number(currencyDelta) || 0)}
+                    </p>
+                  )}
                 </div>
               )}
             </motion.div>

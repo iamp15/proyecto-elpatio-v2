@@ -85,6 +85,8 @@ export function DominoSocketProvider({ children }) {
     const onConnect = () => {
       setConnected(true);
       setReconnecting(false);
+      // Refuerzo: el cliente pide la config tras conectar (evita perder init_lobby_config si hubo carrera al registrar listeners).
+      s.emit('request_lobby_config');
     };
     const onDisconnect = () => {
       setConnected(false);

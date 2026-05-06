@@ -480,6 +480,15 @@
   flex-shrink: 0;
 }
 
+/* Misma idea que PlayerProfileFrame: cápsula VIP arriba-izq. solapando el borde del anillo */
+.lobby-rank-avatar-vip {
+  position: absolute;
+  top: -7px;
+  left: -5px;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .lobby-rank-avatar-img,
 .lobby-rank-avatar-placeholder {
   width: 48px;
@@ -641,9 +650,11 @@
 }
 
 .lobby-allow-lower-league-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
   font-size: 0.85rem;
   color: var(--domino-text-muted);
   line-height: 1.3;
@@ -655,224 +666,77 @@
   opacity: 0.9;
 }
 
-/* ── Categoría "Próximamente" (ORO/DIAMANTE) ─────────────────────────── */
-.lobby-category-card--coming-soon {
-  opacity: 0.85;
+.lobby-cross-league-help-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--domino-text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Category Card ───────────────────────────────────────────────────── */
-.lobby-category-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px 14px;
-  border-radius: 20px;
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  background: linear-gradient(
-    145deg,
-    rgba(var(--cat-a-raw, 0,229,204), 0.10) 0%,
-    rgba(0, 0, 0, 0.18) 100%
-  );
-  text-align: left;
-  width: 100%;
+.lobby-cross-league-help-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.32);
   color: var(--domino-text);
-  overflow: hidden;
-  transition: background 0.2s ease;
 }
 
-/* Borde degradado animado (técnica mask-composite) */
-.lobby-category-card::before {
-  content: '';
-  position: absolute;
+/* Modal ayuda cruce de ligas */
+.cross-league-help-overlay {
+  position: fixed;
   inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: linear-gradient(135deg, var(--cat-a, #00e5cc), var(--cat-b, transparent) 60%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.lobby-category-card:hover::before {
-  opacity: 1;
-}
-
-/* ── Botón "Jugar" dentro de la card ─────────────────────────────────── */
-.lobby-card-play-btn {
+  z-index: 400;
+  background: rgba(13, 17, 23, 0.82);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+}
+
+.cross-league-help-panel {
   width: 100%;
-  padding: 10px 0;
-  margin-top: 4px;
-  border-radius: 12px;
-  border: 1px solid var(--cat-a, rgba(0,229,204,0.4));
-  background: rgba(var(--cat-a-raw, 0,229,204), 0.14);
-  color: var(--cat-a, #00e5cc);
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.18s ease, opacity 0.18s ease;
-}
-
-.lobby-card-play-btn:hover:not(:disabled) {
-  background: rgba(var(--cat-a-raw, 0,229,204), 0.22);
-}
-
-.lobby-card-play-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--domino-text-muted);
-}
-
-/* ── Tarjeta de rango activo (resplandor + shimmer + badge) ───────────────── */
-.lobby-category-card--active-rank {
-  /* box-shadow animado vía framer-motion */
-}
-
-.lobby-card-shimmer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 35%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.05) 65%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 1;
-  transform: translateX(-100%);
-}
-
-.lobby-card-active-badge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 3;
-  padding: 4px 10px;
-  border-radius: 99px;
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: rgba(var(--cat-a-raw, 0, 229, 204), 0.25);
-  color: var(--cat-a, #00e5cc);
-  border: 1px solid rgba(var(--cat-a-raw, 0, 229, 204), 0.5);
-  box-shadow: 0 0 12px rgba(var(--cat-a-raw, 0, 229, 204), 0.4);
-  pointer-events: none;
-}
-
-/* Overlay oscuro + candado para tarjetas bloqueadas */
-.lobby-category-card--locked {
-  cursor: default;
-}
-
-.lobby-category-card--locked::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(0, 0, 0, 0.58);
-  pointer-events: none;
-}
-
-/* ── Contenido de la card ────────────────────────────────────────────── */
-.lobby-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.lobby-card-emoji {
-  font-size: 2rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 8px var(--cat-a, rgba(0,229,204,0.4)));
-}
-
-.lobby-card-lock-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.lobby-card-your-rank-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: var(--cat-a, #00e5cc);
-  color: #0d1117;
-  flex-shrink: 0;
-}
-
-.lobby-card-title {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--domino-text);
-  line-height: 1.1;
-}
-
-.lobby-card-pr-range {
-  font-size: 0.72rem;
-  color: var(--domino-text-muted);
-  margin-top: 1px;
-}
-
-.lobby-card-chips {
+  max-width: 400px;
+  border-radius: 18px;
+  background: var(--domino-surface-2);
+  border: 1.5px solid var(--domino-border-2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  padding: 22px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-top: 2px;
+  gap: 14px;
 }
 
-.lobby-card-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 5px 9px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-}
-
-.lobby-card-chip-label {
-  font-size: 0.68rem;
-  color: var(--domino-text-muted);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.lobby-card-chip-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.78rem;
+.cross-league-help-title {
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: var(--cat-a, var(--domino-neon));
+  letter-spacing: -0.02em;
+  color: var(--domino-text);
+  line-height: 1.25;
+}
+
+.cross-league-help-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--domino-text-muted);
+  white-space: pre-line;
+}
+
+.cross-league-help-close {
+  align-self: stretch;
+  margin-top: 4px;
 }
 
 /* ── Vista IN_QUEUE ──────────────────────────────────────────────────── */

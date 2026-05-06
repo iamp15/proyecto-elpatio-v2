@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
+import { useInventory } from '../../../context/InventoryContext';
 import { useGameSocket } from './useGameSocket';
 import DominoGame from './DominoGame';
 import GameOverModal from './components/GameOverModal';
@@ -20,6 +21,7 @@ import {
   getAbandoningOpponentUserId,
 } from './utils/opponentAbandonAnnouncement';
 import { resolveDisplayName } from '../../../lib/userDisplayName';
+import { withVipDisplayNameStyle, isVipUser } from '../../../lib/vipUserUi';
 
 /**
  * Página del tablero de Dominó en /play/:roomId.
@@ -39,6 +41,7 @@ export default function GameDominoBoardPage() {
   const { roomId }  = useParams();
   const location    = useLocation();
   const { user, refreshBalance, updateUser } = useAuth();
+  const { refreshInventory } = useInventory();
   const navigate     = useNavigate();
 
   const sounds = useGameSounds();
@@ -114,11 +117,13 @@ export default function GameDominoBoardPage() {
           displayName: me?.displayName ?? resolveDisplayName(user, t('gameBoard.you')),
           pr:          me?.pr ?? user?.pr ?? 1000,
           rank:        me?.rank ?? user?.rank,
+          vip_status:  me?.vip_status ?? user?.vip_status,
         },
         playerOpponent: {
           displayName: resolveDisplayName(opponent, t('gameBoard.rival')),
           pr:          opponent?.pr ?? 1000,
           rank:        opponent?.rank,
+          vip_status:  opponent?.vip_status,
         },
       });
       setShowMatchOverlay(true);
@@ -177,6 +182,7 @@ export default function GameDominoBoardPage() {
       setAbandonWinBanner({
         reason: getAbandonReason(payload),
         opponentName,
+        opponentIsVip: isVipUser(ply),
       });
 
       if (forfeitAnnounceTimerRef.current) {
@@ -194,12 +200,13 @@ export default function GameDominoBoardPage() {
     (payload) => {
       pendingGameOverRef.current = payload;
       refreshBalance?.();
+      refreshInventory?.();
 
       if (!roundOverlayVisibleRef.current) {
         presentGameOver(payload);
       }
     },
-    [refreshBalance, presentGameOver],
+    [refreshBalance, refreshInventory, presentGameOver],
   );
 
   const handlePRUpdated = useCallback(({ pr, rank }) => {
@@ -436,8 +443,9 @@ export default function GameDominoBoardPage() {
         </button>
       )}
 
+  
+      {/*🧪 BOTONES DE DESARROLLADOR — mantener comentados para uso futuro*/}
       {/*
-      🧪 BOTONES DE DESARROLLADOR — mantener comentados para uso futuro
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-wrap justify-center gap-2">
         <button
           type="button"
@@ -476,9 +484,11 @@ export default function GameDominoBoardPage() {
             const oppId = opponentPlayer?.userId ?? 999;
             setGameOver({
               winnerId: myUserId,
-              prize_piedras: 50,
+              prize_piedras: 55,
+              prize_piedras_base: 50,
+              vip_piedras_bonus: 5,
               finalScores: { [myUserId]: 52, [oppId]: 48 },
-              prChanges: { winnerGain: 25, loserLoss: 25 },
+              prChanges: { winnerGain: 28, loserLoss: 20, winnerGainBase: 20, vipPrBonus: 8 },
             });
             setView('finished');
           }}
@@ -503,8 +513,8 @@ export default function GameDominoBoardPage() {
         >
           🧪 Derrota
         </button>
-      </div>
-      */}
+      </div>*/}
+  
 
 
       {/* Indicador de desconexión */}
@@ -642,7 +652,12 @@ export default function GameDominoBoardPage() {
                             : 'bg-gradient-to-b from-gray-900/60 to-black border-2 border-gray-700 opacity-60 scale-95'
                         }`}
                       >
-                        <h3 className="text-lg text-white font-bold mb-3">{playerName}</h3>
+                        <h3
+                          className="text-lg text-white font-bold mb-3"
+                          style={withVipDisplayNameStyle(isMe ? user : playerFromState, {})}
+                        >
+                          {playerName}
+                        </h3>
                         <div className="flex flex-wrap justify-center gap-1.5 mb-3">
                           {hand.map((tile, i) => (
                             <motion.div
@@ -741,7 +756,15 @@ export default function GameDominoBoardPage() {
                       transition={{ delay: 1.5 }}
                       className={`mt-6 text-2xl md:text-3xl font-black ${colorClass}`}
                     >
-                      {winnerName} +{roundEndSequence.data.pointsWon} pts
+                      <span
+                        style={withVipDisplayNameStyle(
+                          String(winnerId) === String(myUserId) ? user : winnerPlayer,
+                          {},
+                        )}
+                      >
+                        {winnerName}
+                      </span>
+                      {' '}+{roundEndSequence.data.pointsWon} pts
                     </motion.div>
                   );
                 })()}
@@ -781,18 +804,28 @@ export default function GameDominoBoardPage() {
 
               <div className="flex justify-between text-gray-800 text-xl">
                 <div className="flex flex-col items-center flex-1 border-r border-red-200">
-                  <span className="text-sm opacity-60">{resolveDisplayName(user, t('gameBoard.you'))}</span>
+                  <span
+                    className={isVipUser(user) ? 'text-sm' : 'text-sm opacity-60'}
+                    style={withVipDisplayNameStyle(user, {})}
+                  >
+                    {resolveDisplayName(user, t('gameBoard.you'))}
+                  </span>
                   <span className="text-3xl">{roundEndSequence.data.currentScores[myUserId] || 0}</span>
                 </div>
                 <div className="flex flex-col items-center flex-1">
-                  <span className="text-sm opacity-60">
-                    {resolveDisplayName(
-                      (gameState?.players ?? []).find(
-                        (p) => String(p.userId) !== String(myUserId),
-                      ),
-                      t('gameBoard.rival'),
-                    )}
-                  </span>
+                  {(() => {
+                    const oppRow = (gameState?.players ?? []).find(
+                      (p) => String(p.userId) !== String(myUserId),
+                    );
+                    return (
+                      <span
+                        className={isVipUser(oppRow) ? 'text-sm' : 'text-sm opacity-60'}
+                        style={withVipDisplayNameStyle(oppRow, {})}
+                      >
+                        {resolveDisplayName(oppRow, t('gameBoard.rival'))}
+                      </span>
+                    );
+                  })()}
                   <span className="text-3xl">
                     {
                       Object.values(roundEndSequence.data.currentScores).find(
@@ -817,9 +850,12 @@ export default function GameDominoBoardPage() {
                         ? resolveDisplayName(user, t('gameBoard.you'))
                         : t('gameBoard.rival'),
                     );
+                    const winnerEntity =
+                      String(winnerId) === String(myUserId) ? user : winnerPlayer;
                     return (
                       <>
-                        {winnerName} +{roundEndSequence.data.pointsWon} {t('gameOverModal.pts')}
+                        <span style={withVipDisplayNameStyle(winnerEntity, {})}>{winnerName}</span>
+                        {' '}+{roundEndSequence.data.pointsWon} {t('gameOverModal.pts')}
                       </>
                     );
                   })()}
@@ -845,13 +881,13 @@ export default function GameDominoBoardPage() {
         visible={!!abandonWinBanner}
         reason={abandonWinBanner?.reason ?? 'forfeit'}
         opponentName={abandonWinBanner?.opponentName ?? ''}
+        opponentIsVip={Boolean(abandonWinBanner?.opponentIsVip)}
       />
 
       {view === 'finished' && gameOver && (
         <GameOverModal
           winnerId={gameOver.winnerId}
           myUserId={myUserId}
-          prize_piedras={gameOver.prize_piedras}
           systemMessage={gameOver.systemMessage ?? null}
           finalScores={gameOver.finalScores ?? {}}
           playerOrder={gameState?.playerOrder ?? []}
@@ -861,7 +897,15 @@ export default function GameDominoBoardPage() {
               ? gameOver.prChanges?.winnerGain ?? 0
               : -(gameOver.prChanges?.loserLoss ?? 0)
           }
+          prGainBase={gameOver.winnerId === myUserId ? (gameOver.prChanges?.winnerGainBase ?? 0) : 0}
+          prVipBonus={gameOver.winnerId === myUserId ? (gameOver.prChanges?.vipPrBonus ?? 0) : 0}
           currencyDelta={gameOver.winnerId === myUserId ? gameOver.prize_piedras ?? 0 : 0}
+          prizePiedrasBase={
+            gameOver.winnerId === myUserId
+              ? (gameOver.prize_piedras_base ?? gameOver.prize_piedras ?? 0)
+              : 0
+          }
+          vipPiedrasBonus={gameOver.winnerId === myUserId ? (gameOver.vip_piedras_bonus ?? 0) : 0}
           onLobby={() => navigate('/ligas')}
         />
       )}

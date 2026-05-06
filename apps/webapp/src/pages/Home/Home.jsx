@@ -37,6 +37,13 @@ function Home() {
       iconVariant: 'store',
     },
     {
+      id: 'backpack',
+      path: '/backpack',
+      title: t('home.cards.backpack'),
+      subtitle: t('home.cards.backpackSubtitle'),
+      iconVariant: 'backpack',
+    },
+    {
       id: 'profile',
       path: '/perfil',
       title: t('home.cards.profile'),

@@ -4,8 +4,15 @@
     "waiting_players": "Esperando rivales...",
     "chooseCategory": "Elige tu categoría",
     "allowLowerLeague": "Permitir emparejamiento con ligas inferiores (Partida rápida)",
+    "crossLeagueToggle": "Activar cruce de ligas",
+    "crossLeagueHelpAria": "Información sobre el cruce de ligas",
+    "crossLeagueHelpTitle": "¿Qué es el cruce de ligas?",
+    "crossLeagueHelpBody": "Si activas esta opción, el emparejador puede buscarte rivales más allá del rango estricto de la liga en la que juegas.\n\nPor ejemplo: en ligas bajas podrías enfrentarte a jugadores con más PR que han elegido esa cola; en ligas altas, si el sistema lo permite, también a rivales de la cola de la liga inferior.\n\nSi la dejas desactivada, la búsqueda se mantiene más ajustada al techo de PR de tu liga.",
+    "crossLeagueHelpClose": "Entendido",
     "entry": "Entrada",
-    "estimatedPrize": "Premio est.",
+    "couponsAvailable": "(Tienes: x{{count}})",
+    "originalStoneCost": "Costo normal: {{count}}",
+    "useCoupon": "Usar 1 Cupón",
     "play": "Jugar",
     "comingSoon": "Próximamente",
     "locked": "Bloqueado",
@@ -27,7 +34,10 @@
     "balanceLoadingShort": "Cargando saldo…",
     "balanceUnavailableShort": "No se pudo verificar el saldo. Inténtalo de nuevo.",
     "errorQueueReset": "La partida fue cancelada. Intentando de nuevo…",
-    "errorServer": "Error en el servidor."
+    "errorServer": "Error en el servidor.",
+    "leaguesEmpty": "No se cargaron las ligas. Comprueba que el game-server esté en marcha o pulsa reintentar.",
+    "retryLeagues": "Cargar ligas de nuevo",
+    "loadingLeagues": "Cargando ligas del servidor…"
   },
   "game": {
     "your_turn": "Tu Turno",
@@ -94,7 +104,9 @@
     "pts": "pts",
     "pointsExplanation": "Puntos = fichas restantes en mano. Menos es mejor.",
     "playAgain": "Jugar de nuevo",
-    "backToLobby": "Volver al Lobby"
+    "backToLobby": "Volver al Lobby",
+    "vipTag": "VIP",
+    "vipBonusHint": "Bono por suscripción VIP (rake o prestigio PR)"
   },
   "gameOptions": {
     "title": "Opciones",
@@ -175,7 +187,8 @@
     "bet": "Apuesta",
     "win": "Partida Ganada",
     "refund": "Reembolso",
-    "commission": "Comisión"
+    "commission": "Comisión",
+    "feePaidWithCoupon": "Entrada con cupón (Liga Bronce)"
   },
   "chat": {
     "hello": "Hola",
@@ -195,6 +208,8 @@
       "tournamentsSubtitle": "Únete a eventos especiales",
       "store": "Tienda",
       "storeSubtitle": "Consigue piedras y cosméticos",
+      "backpack": "Mochila",
+      "backpackSubtitle": "Consumibles y cosméticos que tienes",
       "profile": "Perfil",
       "profileSubtitle": "Mira tus estadísticas e inventario"
     },

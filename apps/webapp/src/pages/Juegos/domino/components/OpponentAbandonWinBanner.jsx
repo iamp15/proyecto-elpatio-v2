@@ -1,19 +1,28 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { vipDisplayNameStyleOnDark } from '../../../../lib/vipUserUi';
 
 /**
  * Anuncio de victoria por abandono/desconexión del rival.
  * Solo para el jugador que no abandonó; se muestra antes del GameOverModal.
  *
- * @param {{ visible: boolean, reason: 'disconnect'|'forfeit', opponentName: string }} props
+ * @param {{ visible: boolean, reason: 'disconnect'|'forfeit', opponentName: string, opponentIsVip?: boolean }} props
  */
-export default function OpponentAbandonWinBanner({ visible, reason, opponentName }) {
+export default function OpponentAbandonWinBanner({
+  visible,
+  reason,
+  opponentName,
+  opponentIsVip = false,
+}) {
   const { t } = useTranslation();
 
   const titleKey =
     reason === 'disconnect'
       ? 'forfeitWinAnnouncement.titleDisconnect'
       : 'forfeitWinAnnouncement.titleForfeit';
+
+  const titleText = t(titleKey, { name: opponentName });
+  const nameIdx = opponentName ? titleText.indexOf(opponentName) : -1;
 
   return (
     <AnimatePresence>
@@ -38,7 +47,17 @@ export default function OpponentAbandonWinBanner({ visible, reason, opponentName
               {t('forfeitWinAnnouncement.kicker')}
             </p>
             <h2 className="text-2xl md:text-3xl font-black text-white leading-tight mb-2">
-              {t(titleKey, { name: opponentName })}
+              {nameIdx >= 0 ? (
+                <>
+                  {titleText.slice(0, nameIdx)}
+                  <span style={opponentIsVip ? vipDisplayNameStyleOnDark() : undefined}>
+                    {opponentName}
+                  </span>
+                  {titleText.slice(nameIdx + opponentName.length)}
+                </>
+              ) : (
+                titleText
+              )}
             </h2>
             <p className="text-base text-white/75 font-medium">
               {t('forfeitWinAnnouncement.subtitle')}

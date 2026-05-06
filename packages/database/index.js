@@ -4,9 +4,30 @@ const GameSession = require('./models/GameSession');
 const Transaction = require('./models/Transaction');
 const DominoMatch = require('./models/DominoMatch');
 const LudoMatch = require('./models/LudoMatch');
-const GameConfig = require('./models/GameConfig');
+const AppConfig = require('./models/AppConfig');
+const AppConfigManager = require('./services/AppConfigManager');
+const ITEM_CATALOG = require('./catalog/itemCatalog.json');
 const { createTransaction } = require('./services/createTransaction');
+const { checkAndRefillDailyCoupons } = require('./services/inventoryService');
+const { revokeConditionalItem } = require('./services/inventoryRevocation');
+const {
+  COUPON_SUPPORTED_LEAGUES,
+  normalizeCouponLeagueId,
+  hasLeagueEntryCoupon,
+  tryConsumeLeagueCouponForEntryFee,
+  restoreLeagueCouponAfterRollback,
+  hasBronzeLeagueCoupon,
+  tryConsumeBronzeCouponForEntryFee,
+  restoreBronzeCouponAfterRollback,
+} = require('./services/leagueCouponEntryFee');
 const { runDominoSettlement } = require('./services/runDominoSettlement');
+const {
+  SUBUNITS_PER_STONE,
+  toWholeStoneSubunits,
+  subunitsToStonesFloor,
+} = require('./utils/stoneEconomy');
+const { isVipEffective, isUserVip } = require('./utils/isVipEffective');
+const { CURRENT_SEASON } = require('./utils/currentSeason');
 
 // Configuramos para que Mongoose use promesas modernas
 mongoose.Promise = global.Promise;
@@ -35,12 +56,30 @@ const connectDB = async (uri) => {
 module.exports = {
   connectDB,
   createTransaction,
+  checkAndRefillDailyCoupons,
+  revokeConditionalItem,
+  COUPON_SUPPORTED_LEAGUES,
+  normalizeCouponLeagueId,
+  hasLeagueEntryCoupon,
+  tryConsumeLeagueCouponForEntryFee,
+  restoreLeagueCouponAfterRollback,
+  hasBronzeLeagueCoupon,
+  tryConsumeBronzeCouponForEntryFee,
+  restoreBronzeCouponAfterRollback,
   runDominoSettlement,
   User,
   GameSession,
   Transaction,
   DominoMatch,
   LudoMatch,
-  GameConfig,
+  AppConfig,
+  AppConfigManager,
+  SUBUNITS_PER_STONE,
+  toWholeStoneSubunits,
+  subunitsToStonesFloor,
+  isVipEffective,
+  isUserVip,
+  CURRENT_SEASON,
+  ITEM_CATALOG,
   mongoose,
 };

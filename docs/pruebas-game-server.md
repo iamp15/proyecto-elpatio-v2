@@ -2,6 +2,8 @@
 
 Cubre: crear jugadores mock, gestionar saldo, cambiar de usuario en el navegador, probar la cola y el matchmaking completo.
 
+**Configuración y economía:** las reglas de juego, categorías (ligas) y la tienda viven en un único documento MongoDB (`app_config`), cargado en RAM al arrancar el servidor. El **rake** (comisión sobre el pozo en partidas normales) es **por liga** y se edita en `economy.leagueRakePercent` (valores por defecto: BRONCE 20 %, PLATA 15 %, ORO 12 %, DIAMANTE 10 %). El cliente recibe `rakePercent` en cada categoría dentro de `init_lobby_config`.
+
 ---
 
 ## 0. Requisitos previos
@@ -78,7 +80,7 @@ const res = await fetch('http://localhost:3000/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ isMock: true, userId: 11111111 })  // <-- cambia este número
-});
+}); 
 const data = await res.json();
 localStorage.setItem('el_patio_token', data.token);
 localStorage.setItem('el_patio_user', JSON.stringify(data.user));
@@ -106,7 +108,7 @@ location.reload();
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 const TEST_USER_ID = 11111111;  // ← CAMBIA ESTE NÚMERO en cada pestaña
-const MODE_ID      = '1v1_50';  // ← Modo de juego (ver tabla en sección 6)
+const CATEGORY_ID  = 'BRONCE';  // ← Liga: 'BRONCE' | 'PLATA' | (ORO/DIAMANTE cuando haya cola 4j)
 const API_URL      = 'http://localhost:3000';
 const SOCKET_URL   = 'http://localhost:3001';
 
@@ -146,8 +148,8 @@ const socket = io(`${SOCKET_URL}/domino`, {
 
 socket.on('connect', () => {
   console.log('[test] ✅ Conectado. Socket ID:', socket.id);
-  socket.emit('join_queue', { modeId: MODE_ID });
-  console.log(`[test] join_queue emitido — modeId="${MODE_ID}" (entry fee: 5 piedras)`);
+  socket.emit('join_queue', { categoryId: CATEGORY_ID, allowLowerLeague: false });
+  console.log(`[test] join_queue emitido — categoryId="${CATEGORY_ID}" (BRONCE ≈ 5 piedras de entrada)`);
 });
 
 socket.on('connect_error', (err) => {
@@ -330,13 +332,17 @@ console.log('[test] game_over emitido. Ganador declarado: userId=' + myUserId);
 - Ambas pestañas reciben `game_over` con el premio y la comisión.
 - Solo la pestaña del ganador recibe además `balance_updated` con el saldo actualizado.
 
-**Cálculo del premio para `1v1_50`:**
+**Cálculo del premio (partida normal, categoría BRONCE, 2 jugadores):**
+
+Los importes de entrada y meta vienen de `app_config` → `gameplay.games` (juego `domino`). Con los valores por defecto del seed:
 
 ```
-Entry fee:  5 piedras × 2 jugadores = 10 piedras en el bote
-Premio:     10 × 80% = 8 piedras  → al ganador
-Comisión:   10 × 20% = 2 piedras  → casa
+Entry fee:  5 piedras × 2 jugadores = 10 piedras en el pozo (1000 subunits)
+Rake BRONCE: 20 %  →  premio = floor(1000 × 0,80) = 800 subunits = 8 piedras
+            comisión = 200 subunits = 2 piedras
 ```
+
+En **PLATA** el rake por defecto es **15 %** (premio mayor en proporción); en **ORO** y **DIAMANTE** el rake es menor (12 % y 10 %) y el modo es a 4 jugadores cuando el matchmaking lo permita. Si cambias porcentajes en `economy.leagueRakePercent`, recarga la config en el servidor (p. ej. `POST /admin/refresh-config` en el game-server) antes de contrastar números.
 
 ---
 
@@ -345,7 +351,7 @@ Comisión:   10 × 20% = 2 piedras  → casa
 ### Setup (terminal)
 
 ```bash
-# Crear dos jugadores con saldo suficiente (entry fee 1v1_50 = 5 piedras)
+# Crear dos jugadores con saldo suficiente (BRONCE: entrada 5 piedras por jugador)
 node packages/database/create-test-user.js 11111111 50 "Jugador1"
 node packages/database/create-test-user.js 22222222 50 "Jugador2"
 ```
@@ -362,7 +368,7 @@ node packages/database/create-test-user.js 22222222 50 "Jugador2"
 
 ```
 [test] ✅ Conectado. Socket ID: xxxx
-[test] join_queue emitido con modeId="1v1_50" (entry fee: 5 piedras)
+[test] join_queue emitido — categoryId="BRONCE" (BRONCE ≈ 5 piedras de entrada)
 [test] 🕐 En cola — jugadores: 1, faltan: 1
 [test] 💰 Entry fee cobrado. Nuevo saldo: 45 piedras — "¡Entrada cobrada con éxito. Buena suerte!"
 [test] 💵 balance_updated — 45 piedras (4500 subunits)
@@ -382,11 +388,11 @@ node packages/database/create-test-user.js 22222222 50 "Jugador2"
 ### Saldo insuficiente al hacer join_queue
 
 ```bash
-# Terminal — poner saldo por debajo del entry fee
-node packages/database/create-test-user.js 11111111 3  # 3 piedras, fee es 5
+# Terminal — poner saldo por debajo del entry fee (BRONCE = 5 piedras)
+node packages/database/create-test-user.js 11111111 3
 ```
 
-Luego ejecuta el **Script 3** en la pestaña del Jugador1. Verás `💸 insufficient_balance` — el jugador nunca llega a entrar en la sala.
+Luego ejecuta el **Script 3** con `CATEGORY_ID = 'BRONCE'` en la pestaña del Jugador1. Verás `💸 insufficient_balance` — el jugador no entra en la cola.
 
 ---
 
@@ -410,23 +416,24 @@ Resultado esperado: Jugador1 recibe `insufficient_balance`, Jugador2 recibe `que
 
 ---
 
-### Probar modo 2v2
+### Probar categorías con 4 jugadores (ORO / DIAMANTE)
 
-En el **Script 3**, cambia la línea del `join_queue`:
-
-```javascript
-socket.emit('join_queue', { modeId: '2v2_50' });  // necesitarás 4 pestañas
-```
+Hoy el matchmaking en socket solo acepta categorías con `maxPlayers === 2` (**BRONCE**, **PLATA**). Cuando se habilite la cola para **ORO** o **DIAMANTE**, usa el mismo patrón cambiando `CATEGORY_ID` y tendrás 4 pestañas con el mismo `categoryId`. El pozo y el rake siguen la fila correspondiente de la tabla siguiente.
 
 ---
 
-## 6. Referencia rápida — Modos de juego y premios
+## 6. Referencia rápida — Categorías (ligas), pozo y rake
 
-| modeId    | Jugadores | Objetivo | Entry Fee  | Premio (80%) | Comisión (20%) |
-|-----------|-----------|----------|------------|--------------|----------------|
-| `1v1_50`  | 2         | 50 pts   | 5 piedras  | 8 piedras    | 2 piedras      |
-| `1v1_100` | 2         | 100 pts  | 10 piedras | 16 piedras   | 4 piedras      |
-| `2v2_50`  | 4         | 50 pts   | 5 piedras  | 16 piedras   | 4 piedras      |
+Tabla con **valores por defecto** de `app_config` (juego `domino`) y rake por defecto en `economy.leagueRakePercent`. El premio en partida **normal** es `floor(pozo_total_subunits × (1 − rake/100))` (pozo total = `entryFee_subunits × maxPlayers`).
+
+| categoryId | Jugadores | Objetivo (pts) | Entrada (piedras) | Pozo bruto | Rake % | Premio neto (aprox.) | Comisión (aprox.) |
+|------------|-----------|----------------|-------------------|------------|--------|----------------------|-------------------|
+| `BRONCE`   | 2         | 50             | 5                 | 10         | 20     | 8 piedras            | 2 piedras         |
+| `PLATA`    | 2         | 50             | 10                | 20         | 15     | 17 piedras           | 3 piedras         |
+| `ORO`      | 4         | 100            | 25                | 100        | 12     | 88 piedras           | 12 piedras        |
+| `DIAMANTE` | 4         | 100            | 50                | 200        | 10     | 180 piedras          | 20 piedras        |
+
+> Los importes en piedras asumen 100 subunits = 1 piedra. Si editas rangos o fees en la BD, esta tabla es solo referencia; la fuente de verdad es el documento `app_config` y el evento `init_lobby_config` (incluye `rakePercent` por categoría).
 
 ---
 
@@ -434,7 +441,9 @@ socket.emit('join_queue', { modeId: '2v2_50' });  // necesitarás 4 pestañas
 
 | Evento                | Dirección        | Descripción                                                          |
 |-----------------------|------------------|----------------------------------------------------------------------|
-| `join_queue`          | cliente → server | Entrar a la cola con un `modeId`                                     |
+| `init_lobby_config`   | server → cliente | Categorías de dominó + `rakePercent` por liga (al conectar)          |
+| `join_queue`          | cliente → server | `{ categoryId, allowLowerLeague? }` — cola por liga                  |
+| `queue_joined`        | server → cliente | Confirmación: `{ categoryId }`                                       |
 | `queue_update`        | server → cliente | Estado actual de la sala (jugadores, faltan N)                       |
 | `entry_fee_charged`   | server → cliente | Confirmación individual de cobro + nuevo saldo                       |
 | `balance_updated`     | server → cliente | Saldo actualizado (tras cobro o tras premio)                         |
@@ -446,7 +455,7 @@ socket.emit('join_queue', { modeId: '2v2_50' });  // necesitarás 4 pestañas
 | `game_state`          | server → cliente | Estado actualizado tras cada acción (personalizado por jugador)      |
 | `invalid_move`        | server → cliente | La acción enviada no es válida, con razón explicada                  |
 | `game_over`           | cliente → server | Forzar fin de partida declarando ganador (`{ winnerId }`)            |
-| `game_over`           | server → cliente | Resultado final: `winnerId`, `prize_piedras`, `finalScores`          |
+| `game_over`           | server → cliente | Resultado final: `winnerId`, `prize_piedras`, `prize_subunits`, `commission_subunits`, `commission_pct`, `finalScores`, … |
 | `insufficient_balance`| server → cliente | Saldo insuficiente (pre-check o cobro fallido)                       |
 | `queue_reset`         | server → cliente | La sala fue desmontada, volver a buscar                              |
 | `player_removed`      | server → cliente | Un jugador fue eliminado de la sala                                  |

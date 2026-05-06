@@ -43,6 +43,13 @@ export default function HomeCardIcon({ variant, className }) {
           <path d="M20 21a8 8 0 1 0-16 0" />
         </>
       )}
+      {variant === 'backpack' && (
+        <>
+          <path d="M9 10V8a3 3 0 0 1 6 0v2" />
+          <path d="M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" />
+          <path d="M12 13v5" />
+        </>
+      )}
     </g>
   );
 

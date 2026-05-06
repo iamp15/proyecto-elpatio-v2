@@ -5,8 +5,7 @@ const { createDefaultQueueStore } = require('../matchmaking/QueueStore');
 const { chargeEntryFees } = require('../matchmaking/chargeEntryFees');
 const { handleGameOver } = require('../matchmaking/handleGameOver');
 const { enrichPlayersWithUsernames } = require('../matchmaking/enrichPlayers');
-const configManager = require('../config/ConfigManager');
-const { User } = require('@el-patio/database');
+const { AppConfigManager, User, subunitsToStonesFloor, hasLeagueEntryCoupon } = require('@el-patio/database');
 const timerManager = require('../utils/TimerManager');
 const { setupDominoHeartbeat } = require('../sockets/setupDominoHeartbeat');
 const { runDominoAutoplayPlan } = require('../utils/runDominoAutoplayPlan');
@@ -123,6 +122,15 @@ function createDominoNamespace(io) {
   // ── Auth middleware ──────────────────────────────────────────────────────────
   nsp.use(authSocket);
 
+  function emitInitLobbyConfig(sock) {
+    const categories = AppConfigManager.getAllRanks('domino').map((c) => ({
+      ...c,
+      maxPR: c.maxPR === Infinity ? null : c.maxPR,
+      rakePercent: AppConfigManager.getLeagueRakePercent(c.categoryId),
+    }));
+    sock.emit('init_lobby_config', { categories });
+  }
+
   // ── Conexión ────────────────────────────────────────────────────────────────
   nsp.on('connection', (socket) => {
     const { userId } = socket.data;
@@ -130,6 +138,10 @@ function createDominoNamespace(io) {
     socket.data.inQueue = false;
 
     console.log(`[Domino] Conectado: userId=${userId} (socket=${socket.id})`);
+
+    socket.on('request_lobby_config', () => {
+      emitInitLobbyConfig(socket);
+    });
 
     void (async () => {
       try {
@@ -148,21 +160,17 @@ function createDominoNamespace(io) {
       } catch (err) {
         console.error(`[Domino] Error handshake reconnect_game (userId=${userId}):`, err.message);
       }
-      socket.emit('init_lobby_config', {
-        categories: configManager.getAllRanks('domino').map((c) => ({
-          ...c,
-          maxPR: c.maxPR === Infinity ? null : c.maxPR,
-        })),
-      });
+      // Diferir al siguiente microtask para que el cliente haya registrado los listeners de socket.io
+      queueMicrotask(() => emitInitLobbyConfig(socket));
     })();
 
     setupDominoHeartbeat(socket);
 
     // ── join_queue ─────────────────────────────────────────────────────────────
-    socket.on('join_queue', async ({ categoryId, allowLowerLeague = false } = {}) => {
+    socket.on('join_queue', async ({ categoryId, allowCrossLeague, allowLowerLeague = false } = {}) => {
       try {
         // 1. Validar categoryId
-        const config = configManager.getRankConfig('domino', categoryId);
+        const config = AppConfigManager.getRankConfig('domino', categoryId);
         if (!config) {
           return socket.emit('error', { message: `Categoría de rango inválida: ${categoryId}` });
         }
@@ -174,21 +182,31 @@ function createDominoNamespace(io) {
           });
         }
 
-        // 3. Evitar que un jugador esté en cola o sala a la vez
+        // 3. Multisesión: mismo userId no puede estar en sala activa ni en cola desde otro socket
+        const queueBusyMsg =
+          'Ya tienes una sesión activa buscando partida o jugando en otro dispositivo.';
+        if (roomManager.isUserInActiveRoom(userId)) {
+          return socket.emit('queue_error', { message: queueBusyMsg });
+        }
+        if (queueStore.isUserInQueue(userId)) {
+          return socket.emit('queue_error', { message: queueBusyMsg });
+        }
+
+        // 4. Mismo socket: no duplicar cola / sala local
         if (socket.data.currentRoom || socket.data.inQueue) {
           return socket.emit('error', { message: 'Ya estás en cola. Sal antes de unirte a otra.' });
         }
 
-        // 4. Consultar datos frescos del usuario desde la DB
+        // 5. Consultar datos frescos del usuario desde la DB
         const freshUser = await User.findById(userId).lean();
         if (!freshUser) {
           return socket.emit('error', { message: 'Usuario no encontrado.' });
         }
 
-        // 5. Validar acceso por rango
+        // 6. Validar acceso por rango
         const userPR   = freshUser.pr ?? 1000;
-        const userRank = freshUser.rank ?? configManager.getRankForPR('domino', userPR);
-        if (!configManager.isCategoryAccessible('domino', userRank, categoryId)) {
+        const userRank = freshUser.rank ?? AppConfigManager.getRankForPR('domino', userPR);
+        if (!AppConfigManager.isCategoryAccessible('domino', userRank, categoryId)) {
           return socket.emit('pr_out_of_range', {
             message:     `Tu rango (${userRank}) no permite acceder a ${config.label}. Desbloquea categorías superiores subiendo de rango.`,
             userPR,
@@ -197,17 +215,19 @@ function createDominoNamespace(io) {
           });
         }
 
-        // 6. Validar saldo suficiente
-        if (freshUser.balance_subunits < config.entryFee_subunits) {
+        // 7. Validar saldo suficiente (cupón de entrada de la misma liga sustituye el cobro en Piedras)
+        const canPayWithLeagueCoupon = hasLeagueEntryCoupon(freshUser.inventory, categoryId);
+        if (freshUser.balance_subunits < config.entryFee_subunits && !canPayWithLeagueCoupon) {
           return socket.emit('insufficient_balance', {
             message:  'Saldo insuficiente para unirte a esta partida.',
-            required: config.entryFee_subunits / 100,
-            current:  freshUser.balance_subunits / 100,
+            required: subunitsToStonesFloor(config.entryFee_subunits),
+            current:  subunitsToStonesFloor(freshUser.balance_subunits),
           });
         }
 
-        // 7. Añadir a la cola de matchmaking (tick-based)
-        const result = matchmakingQueue.addPlayer(socket, categoryId, allowLowerLeague, userPR);
+        // 8. Añadir a la cola de matchmaking (tick-based)
+        const crossPref = allowCrossLeague ?? allowLowerLeague;
+        const result = matchmakingQueue.addPlayer(socket, categoryId, crossPref, userPR);
         if (!result.ok) {
           return socket.emit('error', { message: result.error });
         }
@@ -385,10 +405,9 @@ function createDominoNamespace(io) {
     socket.on('disconnect', () => {
       console.log(`[Domino] Desconectado: userId=${userId} (socket=${socket.id})`);
 
-      if (socket.data.inQueue) {
-        matchmakingQueue.removePlayer(socket.id);
-        socket.data.inQueue = false;
-      }
+      // Siempre quitar este socket de la cola (libera userId para otro dispositivo)
+      matchmakingQueue.removePlayer(socket.id);
+      socket.data.inQueue = false;
 
       const room = socket.data.currentRoom;
       if (room) {

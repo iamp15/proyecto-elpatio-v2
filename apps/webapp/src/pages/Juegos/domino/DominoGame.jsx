@@ -68,9 +68,8 @@ export default function DominoGame({
       ...viewerUser,
       pr:    myEntry?.pr ?? viewerUser.pr ?? 1000,
       rank:  myEntry?.rank ?? viewerUser.rank ?? 'BRONCE',
-      avatar_id: viewerUser.avatar_id ?? 'telegram',
-      frame_id: viewerUser.frame_id ?? 'rank',
-      badge_contexts: viewerUser.badge_contexts ?? { global: 'default', domino: null },
+      avatar_id: viewerUser.avatar_id ?? 'avatar_default',
+      frame_id: viewerUser.frame_id ?? 'frame_bronce',
     };
   }, [viewerUser, myEntry]);
 
@@ -151,6 +150,7 @@ export default function DominoGame({
               size="medium"
               showName={false}
               showNameLabel
+              showVipCapsule={false}
               showPR
               layoutSide="right"
               isActiveTurn={isOpponentTurn}
@@ -185,11 +185,12 @@ export default function DominoGame({
           )}
           <ChatBubble bubble={chatBubbles[myUserId]} isOpponent={false} />
           <div style={{ pointerEvents: 'auto' }}>
-<PlayerAvatar
+            <PlayerAvatar
               user={localUserForAvatar}
               size="medium"
               showName={false}
               showNameLabel
+              showVipCapsule={false}
               showPR
               layoutSide="left"
               isActiveTurn={isMyTurn}

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import BackHomeButton from '../../components/navigation/BackHomeButton';
 import styles from './Tournaments.module.css';
 
 function Tournaments() {
@@ -47,6 +48,7 @@ function Tournaments() {
         <h3 className={styles.infoTitle}>{t('tournaments.prizesTitle')}</h3>
         <p className={styles.infoText}>{t('tournaments.prizesDescription')}</p>
       </div>
+      <BackHomeButton />
     </div>
   );
 }

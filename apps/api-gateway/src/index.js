@@ -2,11 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { connectMongo } = require('./lib/mongo');
+const { AppConfigManager } = require('@el-patio/database');
 const { errorHandler } = require('./middleware/errorHandler');
 const authRoutes = require('./routes/auth');
 const healthRoutes = require('./routes/health');
 const balanceRoutes = require('./routes/balance');
 const walletRoutes = require('./routes/wallet');
+const configRoutes = require('./routes/config');
+const inventoryRoutes = require('./routes/inventory');
+const userRoutes = require('./routes/user');
+const storeRoutes = require('./routes/store');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,11 +26,16 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/balance', balanceRoutes);
 app.use('/wallet', walletRoutes);
+app.use('/config', configRoutes);
+app.use('/store', storeRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/user', userRoutes);
 
 app.use(errorHandler);
 
 connectMongo()
-  .then(() => {
+  .then(async () => {
+    await AppConfigManager.loadConfigFromDB();
     app.listen(PORT, () => {
       console.log(`API Gateway running on port ${PORT}`);
     });

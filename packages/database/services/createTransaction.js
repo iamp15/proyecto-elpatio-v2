@@ -10,7 +10,7 @@ const Transaction = require('../models/Transaction');
  * @param {Object} params
  * @param {number}  params.userId               - Telegram ID del usuario (_id en User)
  * @param {number}  params.amount_subunits       - Monto en sub-unidades (negativo para débitos)
- * @param {string}  params.type                  - Tipo: 'DEPOSIT' | 'WITHDRAW' | 'BET' | 'WIN' | 'REFUND' | 'COMMISSION'
+ * @param {string}  params.type                  - Tipo: 'DEPOSIT' | 'WITHDRAW' | 'BET' | 'WIN' | 'REFUND' | 'COMMISSION' | 'FEE_PAID_WITH_COUPON'
  * @param {string}  [params.game_session_id]     - ObjectId de la sesión de juego (opcional)
  * @param {string}  [params.reference_external_id] - ID externo de pago/TON (opcional)
  * @returns {Promise<Object>} El documento Transaction creado

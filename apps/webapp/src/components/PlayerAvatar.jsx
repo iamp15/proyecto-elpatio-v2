@@ -1,18 +1,15 @@
 import PlayerProfileFrame from '../pages/Juegos/domino/components/PlayerProfileFrame';
+import { ITEM_CATALOG } from '../lib/inventory/itemCatalog';
 import { resolveDisplayName } from '../lib/userDisplayName';
+import { isVipUser, vipDisplayNameStyleOnDark } from '../lib/vipUserUi';
 
-/**
- * Mapeo de IDs de badge a variantes del componente PlayerBadge.
- * Mantener sincronizado con la constante BADGE_VARIANT_MAP en Profile.jsx.
- */
-const BADGE_VARIANT_MAP = {
-  default: 'default',
-  vip: 'vip',
-  torneo: 'torneo',
-  fundador: 'fundador',
-  winner: 'default',
-  streak: 'default',
-};
+const DEFAULT_AVATAR_ID = 'avatar_default';
+const DEFAULT_FRAME_ID = 'frame_bronce';
+const DEFAULT_BADGE_ID = 'badge_bronce';
+
+function getCatalogImageUrl(itemId, fallbackItemId) {
+  return ITEM_CATALOG[itemId]?.iconUrl ?? ITEM_CATALOG[fallbackItemId]?.iconUrl ?? null;
+}
 
 /**
  * Componente modular del avatar del jugador que aplica los cosméticos equipados.
@@ -20,12 +17,10 @@ const BADGE_VARIANT_MAP = {
  *
  * @param {object} props 
  * @param {object} props.user - Objeto usuario con campos:
- *   - photo_url: URL de la foto de Telegram (opcional)
  *   - nickname, tg_firstName, first_name, tg_username, username: nombre mostrado (ver resolveDisplayName)
- *   - pr, rank: para color del marco
- *   - avatar_id: ID del avatar equipado (por ahora 'telegram' o 'default')
- *   - frame_id: ID del marco equipado
- *   - badge_id: ID del badge equipado
+ *   - pr, rank: datos de partida/perfil
+ *   - avatar_id, frame_id, badge_id: IDs equipados del catálogo maestro
+ *   - vip_status: { is_vip?: boolean, ... } — si is_vip es true y showVipCapsule, cápsula en el marco; en partida el nombre puede ir en verde
  * @param {('small'|'medium'|'large')} [props.size='medium'] - Tamaño del avatar.
  * @param {boolean} [props.showName=true] - Mostrar nombre debajo del avatar.
  * @param {boolean} [props.showPR=false] - Mostrar PR (solo tiene sentido en partida de dominó).
@@ -35,6 +30,7 @@ const BADGE_VARIANT_MAP = {
  * @param {number} [props.score=0] - Puntos actuales en la liga (partida).
  * @param {number|null} [props.targetScore=null] - Objetivo de puntos (partida).
  * @param {number|null} [props.tileCount=null] - Fichas en mano del rival (partida).
+ * @param {boolean} [props.showVipCapsule=true] - En false (p. ej. partida) se oculta la cápsula VIP; el nombre puede resaltarse en verde.
  */
 export default function PlayerAvatar({
   user,
@@ -47,46 +43,35 @@ export default function PlayerAvatar({
   score = 0,
   targetScore = null,
   tileCount = null,
+  showVipCapsule = true,
 }) {
   // Valores por defecto seguros
   const {
-    photo_url,
     pr = 1000,
-    rank = 'BRONCE',
-    avatar_id = 'telegram',
-    frame_id = 'rank',
-    badge_id = 'default',
+    avatar_id = DEFAULT_AVATAR_ID,
+    frame_id = DEFAULT_FRAME_ID,
+    badge_id = DEFAULT_BADGE_ID,
   } = user || {};
 
-  // Mapear badge ID a variant
-  const badgeVariant = BADGE_VARIANT_MAP[badge_id] || 'default';
-
-  // Determinar avatar URL (si avatar_id es 'telegram' y hay photo_url)
-  const avatarUrl = avatar_id === 'telegram' && photo_url ? photo_url : null;
-
+  const isVip = isVipUser(user);
   const displayName = resolveDisplayName(user, 'Jugador');
 
-  // PlayerProfileFrame espera un objeto `player` con esta estructura:
+  // Los cosméticos se resuelven exclusivamente como imágenes del catálogo.
   const player = {
     name: displayName,
-    avatarUrl,
+    avatarUrl: getCatalogImageUrl(avatar_id, DEFAULT_AVATAR_ID),
+    frameUrl: getCatalogImageUrl(frame_id, DEFAULT_FRAME_ID),
+    badgeUrl: getCatalogImageUrl(badge_id, DEFAULT_BADGE_ID),
     pr,
-    rankColor: rank,
-    badgeVariant,
-  };
-
-  // Tamaños (pueden ajustarse según diseño)
-  const sizeStyles = {
-    small: { transform: 'scale(0.75)' },
-    medium: { transform: 'scale(1)' },
-    large: { transform: 'scale(1.5)' },
+    isVip,
   };
 
   return (
     <div className="relative inline-flex flex-col items-center">
-      <div style={sizeStyles[size]}>
+      <div>
         <PlayerProfileFrame
           player={player}
+          size={size}
           layoutSide={layoutSide}
           isActiveTurn={isActiveTurn}
           score={score}
@@ -94,12 +79,14 @@ export default function PlayerAvatar({
           tileCount={tileCount}
           showPr={showPR}
           showNameLabel={showNameLabel}
+          showVipCapsule={showVipCapsule}
         />
       </div>
       {showName && (
         <span
           className="mt-2 text-sm font-semibold text-white truncate max-w-[100px]"
           title={displayName}
+          style={isVipUser(user) ? vipDisplayNameStyleOnDark() : undefined}
         >
           {displayName}
         </span>

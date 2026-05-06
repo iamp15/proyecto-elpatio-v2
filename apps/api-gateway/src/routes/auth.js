@@ -8,14 +8,66 @@ const {
   normalizeTelegramUsername,
 } = require('../lib/telegram');
 const { validateNickname } = require('../lib/validateNickname');
-const { getUnlockedItems, getBadgeById } = require('../lib/cosmeticsCatalog');
 const { authMiddleware } = require('../middleware/auth');
+const { isVipEffective, checkAndRefillDailyCoupons } = require('@el-patio/database');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = '7d';
 
 const NICKNAME_INDEX_COLLATION = { locale: 'es', strength: 2 };
+
+const DEFAULT_AVATAR_ID = 'avatar_default';
+const DEFAULT_FRAME_ID = 'frame_bronce';
+const DEFAULT_BADGE_ID = 'badge_bronce';
+
+function createStarterInventory() {
+  const acquiredAt = new Date();
+  return [
+    {
+      itemId: DEFAULT_AVATAR_ID,
+      category: 'cosmetic',
+      subType: 'avatar_photo',
+      quantity: 1,
+      isEquipped: true,
+      acquiredAt,
+    },
+    {
+      itemId: DEFAULT_FRAME_ID,
+      category: 'cosmetic',
+      subType: 'avatar_frame',
+      quantity: 1,
+      isEquipped: true,
+      acquiredAt,
+    },
+    {
+      itemId: DEFAULT_BADGE_ID,
+      category: 'cosmetic',
+      subType: 'profile_badge',
+      quantity: 1,
+      isEquipped: true,
+      acquiredAt,
+    },
+    {
+      itemId: 'coupon_bronze',
+      category: 'consumable',
+      subType: 'league_coupon',
+      quantity: 5,
+      isEquipped: false,
+      acquiredAt,
+    },
+  ];
+}
+
+function createNewUserPayload(base) {
+  return {
+    ...base,
+    avatar_id: DEFAULT_AVATAR_ID,
+    frame_id: DEFAULT_FRAME_ID,
+    badge_id: DEFAULT_BADGE_ID,
+    inventory: createStarterInventory(),
+  };
+}
 
 function publicUserPayload(user) {
   const tgFirst = user.tg_firstName ?? null;
@@ -29,13 +81,17 @@ function publicUserPayload(user) {
     /** @deprecated usar tg_username; se mantiene para clientes que lean username */
     username:     tgUsern,
     nickname:     user.nickname ?? null,
-    avatar_id:  user.avatar_id ?? 'telegram',
-    frame_id:   user.frame_id ?? 'rank',
-    badge_id:   user.badge_id ?? 'default',
-    badge_contexts: user.badge_contexts ?? { global: 'default', domino: null },
+    avatar_id:  user.avatar_id ?? DEFAULT_AVATAR_ID,
+    frame_id:   user.frame_id ?? DEFAULT_FRAME_ID,
+    badge_id:   user.badge_id ?? DEFAULT_BADGE_ID,
     pr:         user.pr ?? 1000,
     rank:       user.rank ?? 'BRONCE',
-    vip_status: user.vip_status ?? { is_vip: false },
+    pendingPromotion: user.pendingPromotion ?? null,
+    vip_status: {
+      is_vip:     isVipEffective(user.vip_status),
+      start_date: user.vip_status?.start_date ?? null,
+      expiresAt:  user.vip_status?.expiresAt ?? null,
+    },
   };
 }
 
@@ -59,18 +115,20 @@ router.post('/login', async (req, res, next) => {
       }
       let user = await User.findById(userId);
       if (!user) {
-        user = await User.create({
+        user = await User.create(createNewUserPayload({
           _id:          userId,
           tg_firstName: 'Mock',
           tg_username:  'mockuser',
-        });
+        }));
         console.log('[auth] Usuario mock creado:', user._id);
       }
       const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+      const dailyReward = await checkAndRefillDailyCoupons(user);
       console.log('[auth] Login MOCK OK:', user._id, user.tg_username);
       return res.json({
         token,
         user: publicUserPayload(user),
+        dailyReward,
       });
     }
 
@@ -99,7 +157,7 @@ router.post('/login', async (req, res, next) => {
 
     let user = await User.findById(id);
     if (!user) {
-      user = await User.create({ _id: id, tg_firstName, tg_username });
+      user = await User.create(createNewUserPayload({ _id: id, tg_firstName, tg_username }));
     } else {
       user.tg_firstName = tg_firstName;
       user.tg_username = tg_username;
@@ -107,10 +165,12 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const dailyReward = await checkAndRefillDailyCoupons(user);
     console.log('[auth] Login Telegram OK:', user._id, { tg_firstName, tg_username });
     res.json({
       token,
       user: publicUserPayload(user),
+      dailyReward,
     });
   } catch (e) {
     next(e);
@@ -125,14 +185,16 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user?.userId;
-    const user   = await User.findById(userId).lean();
+    const user   = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    const dailyReward = await checkAndRefillDailyCoupons(user);
     res.json({
       user: publicUserPayload(user),
+      dailyReward,
     });
   } catch (e) {
     next(e);
@@ -204,123 +266,6 @@ router.patch('/nickname', authMiddleware, async (req, res, next) => {
       throw e;
     }
 
-    res.json({ user: publicUserPayload(user) });
-  } catch (e) {
-    next(e);
-  }
-});
-
-/**
- * GET /auth/profile/cosmetics
- * Devuelve el catálogo completo y los items desbloqueados por el usuario.
- */
-router.get('/profile/cosmetics', authMiddleware, async (req, res, next) => {
-  try {
-    const userId = req.user?.userId;
-    const user = await User.findById(userId).lean();
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-    const unlocked = getUnlockedItems(user);
-    res.json({
-      unlocked,
-      selected: {
-        avatar_id: user.avatar_id ?? 'telegram',
-        frame_id:  user.frame_id ?? 'rank',
-        badge_id:  user.badge_id ?? 'default',
-        badge_contexts: user.badge_contexts ?? { global: 'default', domino: null },
-      },
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-
-/**
- * PATCH /auth/profile/cosmetics
- * Actualiza los cosméticos seleccionados del usuario.
- * Valida que los IDs existan y estén desbloqueados.
- */
-router.patch('/profile/cosmetics', authMiddleware, async (req, res, next) => {
-  try {
-    const { avatar_id, frame_id, badge_id, badge_contexts } = req.body || {};
-    const userId = req.user?.userId;
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    // Obtener items desbloqueados
-    const unlocked = getUnlockedItems(user);
-    const errors = [];
-
-    if (avatar_id !== undefined) {
-      if (!unlocked.avatars.includes(avatar_id)) {
-        errors.push('El avatar seleccionado no está desbloqueado');
-      } else {
-        user.avatar_id = avatar_id;
-      }
-    }
-    if (frame_id !== undefined) {
-      if (!unlocked.frames.includes(frame_id)) {
-        errors.push('El marco seleccionado no está desbloqueado');
-      } else {
-        user.frame_id = frame_id;
-      }
-    }
-
-    // Si se pasa badge_id, actualiza badge_contexts.global (compatibilidad)
-    if (badge_id !== undefined) {
-      if (!unlocked.badges.includes(badge_id)) {
-        errors.push('El badge seleccionado no está desbloqueado');
-      } else {
-        const badge = getBadgeById(badge_id);
-        // Si el badge tiene contexto global, actualizamos badge_contexts.global
-        if (badge && badge.context === 'global') {
-          user.badge_contexts = {
-            ...user.badge_contexts,
-            global: badge_id,
-          };
-        }
-        // También mantener badge_id por compatibilidad
-        user.badge_id = badge_id;
-      }
-    }
-
-    // Si se pasa badge_contexts, validar cada contexto
-    if (badge_contexts !== undefined) {
-      // Por seguridad, solo permitimos actualizar global y domino
-      if (badge_contexts.global !== undefined) {
-        if (!unlocked.badges.includes(badge_contexts.global)) {
-          errors.push('El badge global seleccionado no está desbloqueado');
-        } else {
-          const badge = getBadgeById(badge_contexts.global);
-          if (badge && badge.context !== 'global') {
-            errors.push('El badge global debe tener contexto global');
-          } else {
-            user.badge_contexts.global = badge_contexts.global;
-          }
-        }
-      }
-      if (badge_contexts.domino !== undefined) {
-        if (!unlocked.badges.includes(badge_contexts.domino)) {
-          errors.push('El badge de dominó seleccionado no está desbloqueado');
-        } else {
-          const badge = getBadgeById(badge_contexts.domino);
-          if (badge && badge.context !== 'domino') {
-            errors.push('El badge de dominó debe tener contexto domino');
-          } else {
-            user.badge_contexts.domino = badge_contexts.domino;
-          }
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      return res.status(400).json({ error: errors.join(', ') });
-    }
-
-    await user.save();
     res.json({ user: publicUserPayload(user) });
   } catch (e) {
     next(e);

@@ -26,7 +26,9 @@ const transactionSchema = new mongoose.Schema({
       'BET',        // Pago de entrada a mesa
       'WIN',        // Premio por ganar partida
       'REFUND',     // Devolución (ej: partida cancelada)
-      'COMMISSION'  // El "Rake" o comisión del patio
+      'COMMISSION', // El "Rake" o comisión del patio
+      'FEE_PAID_WITH_COUPON', // Entrada a liga pagada con cupón (amount_subunits 0; no afecta saldo)
+      'DAILY_REWARD', // Recompensa diaria de inventario (amount_subunits 0; no afecta saldo)
     ] 
   },
 
@@ -67,12 +69,12 @@ const transactionSchema = new mongoose.Schema({
 
 // Monto legible en Piedras
 transactionSchema.virtual('amount_display').get(function() {
-  return this.amount_subunits / 100;
+  return Math.floor(Number(this.amount_subunits) / 100);
 });
 
 // Balance resultante legible
 transactionSchema.virtual('balance_after_display').get(function() {
-  return this.balance_after_subunits / 100;
+  return Math.floor(Number(this.balance_after_subunits) / 100);
 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

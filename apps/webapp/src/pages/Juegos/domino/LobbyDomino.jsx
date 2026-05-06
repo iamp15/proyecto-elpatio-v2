@@ -1,15 +1,22 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useInventory } from '../../../context/InventoryContext';
 import { useDominoSocket } from '../../../context/DominoSocketContext';
 import { useAudioSettings } from '../../../context/AudioSettingsContext';
 import iconoPiedras from '../../../assets/icono-piedras-2.png';
 import useGameSounds from './hooks/useGameSounds';
 import { resolveDisplayName } from '../../../lib/userDisplayName';
+import { isVipUser, vipDisplayNameStyleOnDark } from '../../../lib/vipUserUi';
+import { getLeagueCouponMeta, getLeagueCouponQuantity } from '../../../lib/inventory/leagueCoupons';
+import BackHomeButton from '../../../components/navigation/BackHomeButton';
 import InsufficientBalanceModal from './components/InsufficientBalanceModal';
+import CrossLeagueHelpModal from './components/CrossLeagueHelpModal';
+import PlayerVipCapsule from './components/PlayerVipCapsule';
+import LeagueCard from './components/leagueCard';
+import LeaguePromotionModal from './components/LeaguePromotionModal';
 import './domino.css';
 /**
  * Constantes visuales por rango (puramente de UI: colores y emoji).
@@ -26,9 +33,38 @@ const RANK_VISUAL = {
 /** Orden de rangos (menor = más bajo). Solo se bloquean categorías MAYORES al rango del usuario. */
 const RANK_ORDER = ['BRONCE', 'PLATA', 'ORO', 'DIAMANTE'];
 
+/** Normaliza el rank del usuario a categoryId en mayúsculas (la API y el CSS usan BRONCE, PLATA, …). */
+function normalizeLeagueId(rankId) {
+  if (rankId == null || typeof rankId !== 'string') return 'BRONCE';
+  const u = rankId.trim().toUpperCase();
+  return RANK_ORDER.includes(u) ? u : 'BRONCE';
+}
+
+/**
+ * Misma regla que el game-server (getRankForPR): última categoría cuyo minPR <= pr.
+ * Solo como respaldo si el usuario no tiene `rank` en perfil.
+ */
+function leagueFromPR(pr, sortedByMinPR) {
+  const n = Number(pr);
+  const prSafe = Number.isFinite(n) ? n : 0;
+  let categoryId = sortedByMinPR[0]?.categoryId ?? 'BRONCE';
+  for (const c of sortedByMinPR) {
+    if (prSafe >= c.minPR) categoryId = c.categoryId;
+  }
+  return categoryId;
+}
+
+/** true si el documento user trae liga persistida (campo rank). */
+function hasPersistedRank(user) {
+  const r = user?.rank;
+  if (r == null) return false;
+  if (typeof r !== 'string') return false;
+  return r.trim() !== '';
+}
+
 /** Devuelve el nivel de un rango (0 = Bronce, 3 = Diamante). Desconocidos = -1. */
 function getRankLevel(rankId) {
-  const idx = RANK_ORDER.indexOf(rankId);
+  const idx = RANK_ORDER.indexOf(normalizeLeagueId(rankId));
   return idx >= 0 ? idx : -1;
 }
 
@@ -52,27 +88,48 @@ function isCategoryUnlocked(userRank, categoryId) {
  * @returns {object[]} Categorías listas para renderizar
  */
 function mergeWithVisuals(serverCategories) {
-  return serverCategories.map((cat) => {
-    const visual = RANK_VISUAL[cat.categoryId] ?? {};
-    const entryFee = Math.round(cat.entryFee_subunits / 100);
-    const pot      = Math.floor(cat.entryFee_subunits * cat.maxPlayers * 0.8 / 100);
-    return {
-      ...cat,
-      maxPR:    (cat.maxPR === null || cat.maxPR === undefined) ? Infinity : cat.maxPR,
-      entryFee,
-      pot,
-      ...visual,
-    };
-  });
+  const list = Array.isArray(serverCategories) ? serverCategories : [];
+  return [...list]
+    .filter(
+      (cat) =>
+        cat != null
+        && typeof cat === 'object'
+        && cat.categoryId != null
+        && String(cat.categoryId).trim() !== '',
+    )
+    .map((raw) => ({ ...raw, categoryId: String(raw.categoryId).toUpperCase() }))
+    .sort((a, b) => (a.minPR ?? 0) - (b.minPR ?? 0))
+    .map((cat) => {
+      const visual = RANK_VISUAL[cat.categoryId] ?? {};
+      const feeSu = Number(cat.entryFee_subunits);
+      const entryFee = Number.isFinite(feeSu) ? Math.round(feeSu / 100) : 0;
+      return {
+        ...cat,
+        maxPR: (cat.maxPR === null || cat.maxPR === undefined) ? Infinity : cat.maxPR,
+        entryFee,
+        ...visual,
+      };
+    });
 }
 
-/** Calcula el progreso de PR dentro del rango actual hacia el siguiente. */
-function calcPRProgress(userPR, categories) {
-  const idx     = categories.findIndex((c) => userPR >= c.minPR && userPR <= c.maxPR);
-  const current = categories[idx];
-  const next    = categories[idx + 1];
-  if (!current || !next) return 1;
-  return Math.min(1, Math.max(0, (userPR - current.minPR) / (next.minPR - current.minPR)));
+/**
+ * Progreso de PR (0–1) desde el suelo de la liga indicada por `displayRankId` hasta el minPR de la siguiente.
+ * La liga mostrada viene de user.rank; el PR indica cuánto falta para el siguiente escalón.
+ */
+function calcPRProgressForRank(userPR, categories, displayRankId) {
+  if (!categories.length) return 0;
+  const sorted = [...categories].sort((a, b) => a.minPR - b.minPR);
+  const pr = Number(userPR);
+  const prSafe = Number.isFinite(pr) ? pr : 0;
+  const rankId = normalizeLeagueId(displayRankId);
+  const idx = sorted.findIndex((c) => c.categoryId === rankId);
+  if (idx < 0) return 0;
+  const current = sorted[idx];
+  const next = sorted[idx + 1];
+  if (!next) return 1;
+  const span = next.minPR - current.minPR;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (prSafe - current.minPR) / span));
 }
 
 function StoneIcon({ size = 16, style }) {
@@ -85,25 +142,6 @@ function StoneIcon({ size = 16, style }) {
       style={{ objectFit: 'contain', flexShrink: 0, ...style }}
       aria-hidden="true"
     />
-  );
-}
-
-function LockIcon({ size = 28 }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
   );
 }
 
@@ -152,20 +190,33 @@ function SkeletonPill({ width = 80, height = 20, radius = 99 }) {
  * Header dinámico con avatar, badge de rango y barra de progreso de PR.
  * Mientras isSyncing=true muestra skeletons animados en lugar de datos reales.
  */
-function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t }) {
-  const currentCat = categories.find((c) => c.categoryId === userRank) ?? categories[0];
-  const nextCat    = categories[categories.indexOf(currentCat) + 1];
-  const progress   = categories.length ? calcPRProgress(userPR, categories) : 0;
-  const isMaxRank  = !nextCat;
+function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, leaguesLoading, t }) {
+  const currentCat =
+    categories.length > 0
+      ? (categories.find((c) => c.categoryId === userRank) ?? categories[0])
+      : null;
+  const nextCat =
+    currentCat != null && categories.length > 0
+      ? categories[categories.indexOf(currentCat) + 1]
+      : null;
+  const progress = categories.length ? calcPRProgressForRank(userPR, categories, userRank) : 0;
+  const isMaxRank = Boolean(categories.length && currentCat && !nextCat);
 
   const displayName = resolveDisplayName(user, t('lobby.defaultPlayerName'));
   const avatarLetter = displayName[0]?.toUpperCase() ?? '?';
 
-  const cssVars = currentCat ? {
-    '--cat-a':     currentCat.colorA,
-    '--cat-b':     currentCat.colorB,
-    '--cat-a-raw': currentCat.colorARaw,
-  } : {};
+  const visualFallback = RANK_VISUAL[userRank] ?? {};
+  const cssVars = currentCat
+    ? {
+        '--cat-a':     currentCat.colorA,
+        '--cat-b':     currentCat.colorB,
+        '--cat-a-raw': currentCat.colorARaw,
+      }
+    : {
+        '--cat-a':     visualFallback.colorA,
+        '--cat-b':     visualFallback.colorB,
+        '--cat-a-raw': visualFallback.colorARaw,
+      };
 
   return (
     <div className="lobby-rank-header" style={cssVars}>
@@ -177,10 +228,20 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
             ) : (
               <div className="lobby-rank-avatar-placeholder">{avatarLetter}</div>
             )}
+            {isVipUser(user) ? (
+              <div className="lobby-rank-avatar-vip">
+                <PlayerVipCapsule compact />
+              </div>
+            ) : null}
           </div>
 
           <div className="lobby-rank-header-info">
-            <div className="lobby-rank-header-name">{displayName}</div>
+            <div
+              className="lobby-rank-header-name"
+              style={isVipUser(user) ? vipDisplayNameStyleOnDark() : undefined}
+            >
+              {displayName}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AnimatePresence mode="wait">
                 {isSyncing ? (
@@ -203,7 +264,18 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
                   >
                     {currentCat.emoji} {t('ranks.' + (currentCat.categoryId || 'bronce').toLowerCase())}
                   </motion.span>
-                ) : null}
+                ) : (
+                  <motion.span
+                    key={`badge-fallback-${userRank}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.35 }}
+                    className={`domino-rank-badge domino-rank-badge--lg domino-rank-badge--${userRank}`}
+                  >
+                    {visualFallback.emoji ?? '🥉'}{' '}
+                    {t('ranks.' + (userRank || 'bronce').toLowerCase())}
+                  </motion.span>
+                )}
               </AnimatePresence>
             </div>
           </div>
@@ -265,16 +337,18 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
           <AnimatePresence mode="wait">
             {!isSyncing && (
               <motion.span
-                key={`pr-label-${userRank}`}
+                key={`pr-label-${userRank}-${categories.length}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.35, delay: 0.1 }}
               >
-                {isMaxRank ? (
+                {leaguesLoading && categories.length === 0 ? (
+                  <span className="lobby-pr-next-label">{t('lobby.loadingLeagues')}</span>
+                ) : isMaxRank ? (
                   <span className="lobby-pr-max-label">{t('lobby.maxRank')}</span>
                 ) : nextCat ? (
                   <span className="lobby-pr-next-label">
-                    {t('lobby.prToNext', { count: nextCat.minPR - userPR, next: t('ranks.' + (nextCat.categoryId || 'bronce').toLowerCase()) })}
+                    {t('lobby.prToNext', { count: Math.max(0, nextCat.minPR - userPR), next: t('ranks.' + (nextCat.categoryId || 'bronce').toLowerCase()) })}
                   </span>
                 ) : null}
               </motion.span>
@@ -295,161 +369,6 @@ function RankHeader({ user, userPR, userRank, balance, categories, isSyncing, t 
   );
 }
 
-/**
- * Card de categoría. Los datos (minPR, maxPR, entryFee, pot) vienen del servidor
- * fusionados con las constantes visuales (emoji, colores).
- * Si isActiveRank, aplica resplandor pulsante, shimmer y badge "ESTÁS AQUÍ".
- * isComingSoon: desbloqueada por rango pero matchmaking no disponible (ej. ORO/DIAMANTE).
- * rankMatchReady: rango y modo 2 jugadores OK (sin candado de liga).
- * playDisabled: no se puede pulsar Jugar (liga bloqueada, próximamente o saldo sin cargar).
- * playDisabledReason: motivo para texto/aria cuando playDisabled (no incluye saldo insuficiente: ahí se abre modal).
- */
-function CategoryCard({
-  cat,
-  rankMatchReady,
-  playDisabled,
-  playDisabledReason,
-  isComingSoon,
-  index,
-  onPlayRequest,
-  isActiveRank,
-  onPlayButton,
-  t,
-}) {
-  const maxDisplay = cat.maxPR === Infinity ? '∞' : cat.maxPR;
-  const glowColor = `rgba(${cat.colorARaw}, 0.45)`;
-
-  const cssVars = {
-    '--cat-a':     cat.colorA,
-    '--cat-b':     cat.colorB,
-    '--cat-a-raw': cat.colorARaw,
-  };
-
-  const cardClass = [
-    'lobby-category-card',
-    !rankMatchReady && !isComingSoon ? 'lobby-category-card--locked' : '',
-    isComingSoon ? 'lobby-category-card--coming-soon' : '',
-    isActiveRank ? 'lobby-category-card--active-rank' : '',
-  ].filter(Boolean).join(' ');
-
-  return (
-    <motion.div
-      className={cardClass}
-      style={cssVars}
-      initial={{ opacity: 0, y: 24 }}
-      animate={{
-        opacity: 1,
-        y: 0,
-        ...(isActiveRank && {
-          boxShadow: [
-            `0 0 0px ${glowColor}`,
-            `0 0 20px ${glowColor}`,
-            `0 0 0px ${glowColor}`,
-          ],
-        }),
-      }}
-      transition={{
-        opacity: { duration: 0.35, delay: index * 0.08, ease: [0.4, 0, 0.2, 1] },
-        y: { duration: 0.35, delay: index * 0.08, ease: [0.4, 0, 0.2, 1] },
-        ...(isActiveRank && {
-          boxShadow: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-        }),
-      }}
-    >
-      {isActiveRank && (
-        <>
-          <motion.div
-            className="lobby-card-shimmer"
-            style={{ willChange: 'transform' }}
-            animate={{ x: ['-100%', '200%'] }}
-            transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.span
-            className="lobby-card-active-badge"
-            animate={{ y: [0, -4, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ willChange: 'transform' }}
-          >
-            {t('lobby.youAreHere')}
-          </motion.span>
-        </>
-      )}
-
-      {!rankMatchReady && !isComingSoon && (
-        <div className="lobby-card-lock-icon">
-          <LockIcon size={28} />
-        </div>
-      )}
-
-      <div className="lobby-card-top">
-        <span className="lobby-card-emoji">{cat.emoji}</span>
-      </div>
-
-      <div>
-        <div className="lobby-card-title">{t('ranks.' + (cat.categoryId || 'bronce').toLowerCase())}</div>
-        <div className="lobby-card-pr-range">{t('lobby.prLabel')} {cat.minPR}–{maxDisplay}</div>
-      </div>
-
-      <div className="lobby-card-chips">
-        <div className="lobby-card-chip">
-          <span className="lobby-card-chip-label">{t('lobby.entry')}</span>
-          <span className="lobby-card-chip-value">
-            <StoneIcon size={12} />
-            {cat.entryFee}
-          </span>
-        </div>
-        <div className="lobby-card-chip">
-          <span className="lobby-card-chip-label">{t('lobby.estimatedPrize')}</span>
-          <span className="lobby-card-chip-value">
-            <StoneIcon size={12} />
-            {cat.pot}
-          </span>
-        </div>
-      </div>
-
-      <motion.button
-        className="lobby-card-play-btn"
-        onClick={() => {
-          if (playDisabled) return;
-          onPlayButton?.();
-          onPlayRequest(cat);
-        }}
-        disabled={playDisabled}
-        whileTap={!playDisabled ? {
-          scale: 0.94,
-          boxShadow: `0 0 0 3px ${cat.colorA}, 0 0 20px ${cat.colorA}55`,
-          transition: { duration: 0.1 },
-        } : {}}
-        aria-label={
-          !playDisabled
-            ? t('lobby.playCategory', { category: t('ranks.' + (cat.categoryId || 'bronce').toLowerCase()) })
-            : isComingSoon
-              ? t('lobby.comingSoon')
-              : !rankMatchReady
-                ? t('lobby.locked')
-                : playDisabledReason === 'balance_loading'
-                  ? t('lobby.balanceLoadingShort')
-                  : playDisabledReason === 'balance_unavailable'
-                    ? t('lobby.balanceUnavailableShort')
-                    : t('lobby.locked')
-        }
-      >
-        {!playDisabled
-          ? t('lobby.play')
-          : isComingSoon
-            ? t('lobby.comingSoon')
-            : !rankMatchReady
-              ? t('lobby.locked')
-              : playDisabledReason === 'balance_loading'
-                ? t('lobby.balanceLoadingShort')
-                : playDisabledReason === 'balance_unavailable'
-                  ? t('lobby.balanceUnavailableShort')
-                  : t('lobby.locked')}
-      </motion.button>
-    </motion.div>
-  );
-}
-
 /** Componente principal del Lobby de Dominó. */
 export default function LobbyDomino() {
   const { t } = useTranslation();
@@ -461,23 +380,52 @@ export default function LobbyDomino() {
     balanceError,
     user,
     updateUser,
+    refreshUser,
     isSyncingProfile,
+    api,
   } = useAuth();
-  const { socket, lobbyServerCategories } = useDominoSocket();
+  const { inventory } = useInventory();
+  const { socket, lobbyServerCategories, connected } = useDominoSocket();
+
+  const requestLobbyConfig = useCallback(() => {
+    if (socket?.connected) socket.emit('request_lobby_config');
+  }, [socket]);
   const navigate = useNavigate();
   const { playButton, playLobbyMusic, stopLobbyMusic } = useGameSounds();
   const { settings: audioSettings } = useAudioSettings();
 
-  const userPR   = user?.pr   ?? 1000;
-  const userRank = user?.rank ?? 'BRONCE';
+  const userPR = user?.pr ?? 1000;
 
   const categories = useMemo(
     () => mergeWithVisuals(lobbyServerCategories ?? []),
     [lobbyServerCategories],
   );
+
+  const couponQuantitiesByLeague = useMemo(
+    () => Object.fromEntries(
+      categories.map((cat) => [
+        cat.categoryId,
+        getLeagueCouponQuantity(inventory, cat.categoryId),
+      ]),
+    ),
+    [categories, inventory],
+  );
+
+  /**
+   * Liga actual en UI: el campo `rank` del usuario en BD (misma semántica que el game-server al validar cola).
+   * Si aún no hay rank persistido, se infiere por PR como respaldo.
+   */
+  const effectiveRank = useMemo(() => {
+    if (hasPersistedRank(user)) return normalizeLeagueId(user.rank);
+    if (categories.length > 0) return leagueFromPR(userPR, categories);
+    return 'BRONCE';
+  }, [user, user?.rank, categories, userPR]);
   const [view,           setView]           = useState('SELECT_MODE');
   const [activeCategory, setActiveCategory] = useState(null);
-  const [allowLowerLeague, setAllowLowerLeague] = useState(false);
+  const [allowCrossLeague, setAllowCrossLeague] = useState(false);
+  const [crossLeagueHelpOpen, setCrossLeagueHelpOpen] = useState(false);
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [promotedLeague, setPromotedLeague] = useState(null);
   const [error,          setError]          = useState('');
   const [insufficientBalanceModal, setInsufficientBalanceModal] = useState({
     open: false,
@@ -508,6 +456,19 @@ export default function LobbyDomino() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!token) return;
+    refreshUser?.();
+  }, [token, refreshUser]);
+
+  useEffect(() => {
+    const pendingPromotion = user?.pendingPromotion;
+    if (!pendingPromotion) return;
+
+    setPromotedLeague(pendingPromotion);
+    setShowPromotionModal(true);
+  }, [user?.pendingPromotion]);
+
   // Música del lobby: arranca si no está silenciada; reacciona a Ajustes (mute música / todo).
   useEffect(() => {
     if (audioSettings.masterMute || audioSettings.musicMute) {
@@ -518,6 +479,13 @@ export default function LobbyDomino() {
     return () => stopLobbyMusic();
   }, [audioSettings.masterMute, audioSettings.musicMute, playLobbyMusic, stopLobbyMusic]);
 
+  // Si el servidor aún no envió ligas tras conectar (p. ej. reconexión), volver a pedir la config.
+  useEffect(() => {
+    if (!connected || lobbyServerCategories !== null) return undefined;
+    const t = setTimeout(() => requestLobbyConfig(), 400);
+    return () => clearTimeout(t);
+  }, [connected, lobbyServerCategories, requestLobbyConfig]);
+
   // Matchmaking sobre el socket global (DominoSocketProvider).
   // No incluir `t`, `navigate`, `updateUser` en deps: suelen cambiar de referencia y el cleanup
   // dispararía leave_queue en bucle, vaciando la cola antes de que el tick empareje.
@@ -527,10 +495,14 @@ export default function LobbyDomino() {
     if (!socket || view !== 'IN_QUEUE' || !queueCategoryId) return undefined;
 
     const categoryId = queueCategoryId;
-    const allowLower = allowLowerLeague;
+    const cross = allowCrossLeague;
 
     const emitJoin = () => {
-      socket.emit('join_queue', { categoryId, allowLowerLeague: allowLower });
+      socket.emit('join_queue', {
+        categoryId,
+        allowCrossLeague: cross,
+        allowLowerLeague: cross,
+      });
     };
 
     const onGameStart = (payload) => {
@@ -569,6 +541,12 @@ export default function LobbyDomino() {
       setActiveCategory(null);
     };
 
+    const onQueueError = (payload) => {
+      setError(payload.message ?? tRef.current('lobby.errorServer'));
+      setView('SELECT_MODE');
+      setActiveCategory(null);
+    };
+
     const onDisconnectWhileQueue = () => {
       if (viewRef.current === 'IN_QUEUE') {
         setView('SELECT_MODE');
@@ -583,6 +561,7 @@ export default function LobbyDomino() {
     socket.on('pr_out_of_range', onPrOutOfRange);
     socket.on('insufficient_balance', onInsufficientBalance);
     socket.on('queue_reset', onQueueReset);
+    socket.on('queue_error', onQueueError);
     socket.on('error', onServerError);
     socket.on('disconnect', onDisconnectWhileQueue);
 
@@ -593,20 +572,22 @@ export default function LobbyDomino() {
       socket.off('pr_out_of_range', onPrOutOfRange);
       socket.off('insufficient_balance', onInsufficientBalance);
       socket.off('queue_reset', onQueueReset);
+      socket.off('queue_error', onQueueError);
       socket.off('error', onServerError);
       socket.off('disconnect', onDisconnectWhileQueue);
       socket.emit('leave_queue');
     };
-  }, [socket, view, queueCategoryId, allowLowerLeague]);
+  }, [socket, view, queueCategoryId, allowCrossLeague]);
 
   function handlePlayCategory(cat) {
     setError('');
     if (!token) return;
-    if (balanceLoading) {
+    const hasCoupon = Number(cat.availableCoupons) > 0;
+    if (!hasCoupon && balanceLoading) {
       setError(t('lobby.balanceLoadingShort'));
       return;
     }
-    if (balanceSubunits === null) {
+    if (!hasCoupon && balanceSubunits === null) {
       setError(
         balanceError
           ? t('lobby.balanceUnavailableShort')
@@ -614,8 +595,8 @@ export default function LobbyDomino() {
       );
       return;
     }
-    const fee = cat.entryFee_subunits ?? 0;
-    if (fee > 0 && balanceSubunits < fee) {
+    const fee = Number(cat.entryFee_subunits);
+    if (!hasCoupon && Number.isFinite(fee) && fee > 0 && balanceSubunits < fee) {
       setInsufficientBalanceModal({ open: true, serverMessage: null });
       return;
     }
@@ -629,6 +610,17 @@ export default function LobbyDomino() {
     setError('');
   }
 
+  async function handleClosePromotion() {
+    setShowPromotionModal(false);
+    try {
+      await api.request('POST', '/api/user/clear-promotion');
+      updateUser({ pendingPromotion: null });
+      setPromotedLeague(null);
+    } catch (e) {
+      console.warn('[LobbyDomino] No se pudo limpiar pendingPromotion:', e?.message || e);
+    }
+  }
+
   return (
     <div className="domino-lobby">
 
@@ -636,10 +628,11 @@ export default function LobbyDomino() {
       <RankHeader
         user={user}
         userPR={userPR}
-        userRank={userRank}
-        balance={balance}
+        userRank={effectiveRank}
+        balance={balance != null ? Math.floor(Number(balance)) : null}
         categories={categories}
-        isSyncing={isSyncingProfile || lobbyServerCategories === null}
+        isSyncing={isSyncingProfile}
+        leaguesLoading={lobbyServerCategories === null}
         t={t}
       />
 
@@ -649,6 +642,18 @@ export default function LobbyDomino() {
         onClose={() => setInsufficientBalanceModal({ open: false, serverMessage: null })}
         onGoToStore={() => {}}
       />
+
+      <CrossLeagueHelpModal
+        open={crossLeagueHelpOpen}
+        onClose={() => setCrossLeagueHelpOpen(false)}
+      />
+
+      {showPromotionModal && promotedLeague && (
+        <LeaguePromotionModal
+          newLeague={promotedLeague}
+          onClose={handleClosePromotion}
+        />
+      )}
 
       {/* ── Toast de error ─────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -680,31 +685,57 @@ export default function LobbyDomino() {
           >
             <p className="domino-lobby-section-title">{t('lobby.chooseCategory')}</p>
 
-            {(getRankLevel(userRank) >= 1 || (categories[0] && userPR >= (categories.find((c) => c.categoryId === 'PLATA')?.minPR ?? 1000))) && (
-              <label className="lobby-allow-lower-league">
-                <input
-                  type="checkbox"
-                  checked={allowLowerLeague}
-                  onChange={(e) => setAllowLowerLeague(e.target.checked)}
-                  className="lobby-allow-lower-league-input"
-                />
-                <span className="lobby-allow-lower-league-switch" aria-hidden />
-                <span className="lobby-allow-lower-league-label">
-                  <Zap size={16} strokeWidth={2} aria-hidden />
-                  {t('lobby.allowLowerLeague')}
-                </span>
-              </label>
-            )}
+            <label className="lobby-allow-lower-league">
+              <input
+                type="checkbox"
+                checked={allowCrossLeague}
+                onChange={(e) => setAllowCrossLeague(e.target.checked)}
+                className="lobby-allow-lower-league-input"
+              />
+              <span className="lobby-allow-lower-league-switch" aria-hidden />
+              <span className="lobby-allow-lower-league-label">
+                {t('lobby.crossLeagueToggle')}
+                <button
+                  type="button"
+                  className="lobby-cross-league-help-btn"
+                  aria-label={t('lobby.crossLeagueHelpAria')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCrossLeagueHelpOpen(true);
+                  }}
+                >
+                  ?
+                </button>
+              </span>
+            </label>
 
             {lobbyServerCategories === null ? (
               <CategorySkeleton />
+            ) : categories.length === 0 ? (
+              <div className="domino-lobby-error" style={{ marginTop: 12 }}>
+                <p style={{ marginBottom: 12 }}>{t('lobby.leaguesEmpty')}</p>
+                <button
+                  type="button"
+                  className="domino-btn domino-btn-primary"
+                  onClick={() => {
+                    playButton();
+                    requestLobbyConfig();
+                  }}
+                  disabled={!socket?.connected}
+                >
+                  {t('lobby.retryLeagues')}
+                </button>
+              </div>
             ) : (
               <div className="lobby-category-grid">
                 {categories.map((cat, i) => {
-                  const rankUnlocked = isCategoryUnlocked(userRank, cat.categoryId);
+                  const rankUnlocked = isCategoryUnlocked(effectiveRank, cat.categoryId);
                   const rankMatchReady = rankUnlocked && cat.maxPlayers === 2;
                   const isComingSoon = rankUnlocked && cat.maxPlayers !== 2;
-                  const saldoListo = !balanceLoading && balanceSubunits !== null;
+                  const availableCoupons = couponQuantitiesByLeague[cat.categoryId] ?? 0;
+                  const hasCoupon = availableCoupons > 0;
+                  const displayCat = { ...cat, availableCoupons };
                   let playDisabled = true;
                   let playDisabledReason = null;
                   if (isComingSoon) {
@@ -713,20 +744,22 @@ export default function LobbyDomino() {
                   } else if (!rankMatchReady) {
                     playDisabled = true;
                     playDisabledReason = null;
-                  } else if (balanceLoading) {
+                  } else if (!hasCoupon && balanceLoading) {
                     playDisabled = true;
                     playDisabledReason = 'balance_loading';
-                  } else if (balanceSubunits === null) {
+                  } else if (!hasCoupon && balanceSubunits === null) {
                     playDisabled = true;
                     playDisabledReason = balanceError ? 'balance_unavailable' : 'balance_loading';
                   } else {
                     playDisabled = false;
                   }
-                  const isActiveRank = cat.categoryId === userRank;
+                  const isActiveRank = cat.categoryId === effectiveRank;
                   return (
-                    <CategoryCard
+                    <LeagueCard
                       key={cat.categoryId}
-                      cat={cat}
+                      league={displayCat}
+                      availableCoupons={availableCoupons}
+                      couponMeta={getLeagueCouponMeta(cat.categoryId)}
                       rankMatchReady={rankMatchReady}
                       playDisabled={playDisabled}
                       playDisabledReason={playDisabledReason}
@@ -735,12 +768,12 @@ export default function LobbyDomino() {
                       onPlayRequest={handlePlayCategory}
                       onPlayButton={playButton}
                       isActiveRank={isActiveRank}
-                      t={t}
                     />
                   );
                 })}
               </div>
             )}
+            <BackHomeButton />
           </motion.div>
         )}
 

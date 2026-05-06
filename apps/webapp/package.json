@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@twa-dev/sdk": "^7.0.0",
+    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.34.3",
     "howler": "^2.2.4",
     "lucide-react": "^0.460.0",
