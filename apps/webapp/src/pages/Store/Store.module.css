@@ -93,6 +93,17 @@
   margin-top: 18px;
 }
 
+.purchaseError {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 100, 100, 0.45);
+  background: rgba(60, 24, 24, 0.35);
+  color: #f0b4b4;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .productsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

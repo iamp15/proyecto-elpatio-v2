@@ -11,20 +11,34 @@ const router = express.Router();
 router.post('/create-invoice', authMiddleware, async (req, res) => {
   try {
     const packId = String(req.body?.packId ?? '').trim();
+    console.log('[store:create-invoice] Request recibido:', {
+      userId: req.user?.userId,
+      packId,
+      hasBody: req.body != null,
+    });
+
     if (!packId) {
+      console.warn('[store:create-invoice] packId faltante');
       return res.status(400).json({ error: 'packId requerido' });
     }
 
     const config = AppConfigManager.getConfig();
     const storePackages = config.economy?.storePackages || [];
     const pack = storePackages.find((p) => p?.id === packId);
+    console.log('[store:create-invoice] Paquete buscado:', {
+      packId,
+      found: Boolean(pack),
+      availablePackIds: storePackages.map((p) => p?.id).filter(Boolean),
+    });
 
     if (!pack) {
+      console.warn('[store:create-invoice] Paquete no encontrado:', packId);
       return res.status(400).json({ error: 'Paquete no encontrado' });
     }
 
     const stars = Math.trunc(Number(pack.stars));
     if (!Number.isFinite(stars) || stars <= 0) {
+      console.warn('[store:create-invoice] Stars inválidas:', { packId, stars: pack.stars });
       return res.status(400).json({ error: 'Paquete inválido (stars)' });
     }
 
@@ -36,12 +50,19 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
 
     const userId = req.user?.userId;
     if (userId == null) {
+      console.warn('[store:create-invoice] userId ausente en JWT');
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
     const title = `Paquete de ${pack.piedras} Piedras`;
     const description = 'Recarga de saldo para El Patio Dominó';
     const payload = `${userId}_${packId}`;
+    console.log('[store:create-invoice] Payload Telegram preparado:', {
+      title,
+      payload,
+      currency: 'XTR',
+      priceAmount: stars,
+    });
 
     const url = `https://api.telegram.org/bot${botToken}/createInvoiceLink`;
 
@@ -59,6 +80,13 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
     });
 
     const telegramJson = await telegramRes.json().catch(() => null);
+    console.log('[store:create-invoice] Respuesta Telegram:', {
+      httpStatus: telegramRes.status,
+      ok: telegramJson?.ok,
+      hasResult: typeof telegramJson?.result === 'string',
+      description: telegramJson?.description,
+      errorCode: telegramJson?.error_code,
+    });
 
     if (!telegramJson?.ok) {
       console.error('[POST /store/create-invoice] Telegram error:', telegramJson);
@@ -71,6 +99,7 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: 'Respuesta de facturación inválida' });
     }
 
+    console.log('[store:create-invoice] Invoice creada correctamente:', { packId, userId });
     return res.json({ success: true, invoiceUrl });
   } catch (error) {
     console.error('[POST /store/create-invoice]', error);

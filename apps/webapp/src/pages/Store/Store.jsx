@@ -15,9 +15,10 @@ function formatAmount(value) {
 }
 
 function Store() {
-  const { balance } = useAuth();
+  const { balance, api } = useAuth();
   const [activeTab, setActiveTab] = useState('stones');
   const [purchasingPackId, setPurchasingPackId] = useState(null);
+  const [purchaseError, setPurchaseError] = useState(null);
   const [stonePackages, setStonePackages] = useState([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(true);
   const currentBalance = useMemo(() => formatAmount(balance), [balance]);
@@ -25,13 +26,15 @@ function Store() {
   useEffect(() => {
     async function fetchPackages() {
       try {
+        console.log('[Store] Cargando paquetes de tienda...');
         const response = await fetch(`${import.meta.env.VITE_API_URL}/config/store`);
         const data = await response.json();
+        console.log('[Store] Respuesta /config/store:', data);
         if (data.ok) {
           setStonePackages(data.storePackages);
         }
       } catch (error) {
-        console.error('Error fetching store packages:', error);
+        console.error('[Store] Error cargando paquetes:', error);
       } finally {
         setIsLoadingPackages(false);
       }
@@ -39,13 +42,61 @@ function Store() {
     fetchPackages();
   }, []);
 
-  async function handlePurchase(packId) {
-    if (purchasingPackId != null) return;
-    setPurchasingPackId(packId);
+  async function handlePurchase(pack) {
+    console.log('[Store] Click comprar:', pack);
+    if (purchasingPackId != null) {
+      console.log('[Store] Compra ignorada: ya hay un paquete en proceso:', purchasingPackId);
+      return;
+    }
+    setPurchaseError(null);
+    setPurchasingPackId(pack.id);
+
     try {
-      // TODO: Integrar Telegram API openInvoice aqui para el siguiente paso del backend.
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-    } finally {
+      console.log('[Store] Solicitando invoice:', { packId: pack.id });
+      const res = await api.request('POST', '/store/create-invoice', {
+        body: { packId: pack.id },
+      });
+      console.log('[Store] Respuesta /store/create-invoice:', res);
+
+      if (!res?.success || !res.invoiceUrl) {
+        console.error('[Store] Respuesta de invoice inválida:', res);
+        setPurchaseError('No se pudo obtener la factura. Intenta de nuevo.');
+        setPurchasingPackId(null);
+        return;
+      }
+
+      const tg = window.Telegram?.WebApp;
+      console.log('[Store] Telegram WebApp detectado:', {
+        hasTelegram: Boolean(window.Telegram),
+        hasWebApp: Boolean(tg),
+        hasOpenInvoice: typeof tg?.openInvoice === 'function',
+      });
+
+      if (tg && typeof tg.openInvoice === 'function') {
+        console.log('[Store] Abriendo invoice en Telegram:', res.invoiceUrl);
+        tg.openInvoice(res.invoiceUrl, (status) => {
+          console.log('[Store] Callback openInvoice status:', status);
+          if (status === 'paid') {
+            console.log('Pago completado en Telegram');
+          } else if (status === 'cancelled') {
+            console.log('El usuario canceló el pago');
+          } else if (status === 'failed') {
+            console.error('El pago falló');
+          } else if (status === 'pending') {
+            console.log('Pago pendiente');
+          }
+          setPurchasingPackId(null);
+        });
+      } else {
+        console.warn('Telegram WebApp no detectado. URL de factura:', res.invoiceUrl);
+        window.open(res.invoiceUrl, '_blank');
+        setPurchasingPackId(null);
+      }
+    } catch (err) {
+      console.error('[Store] Error iniciando compra:', err);
+      const message =
+        err?.body?.error || err?.message || 'No se pudo iniciar la compra. Intenta de nuevo.';
+      setPurchaseError(typeof message === 'string' ? message : 'No se pudo iniciar la compra.');
       setPurchasingPackId(null);
     }
   }
@@ -80,6 +131,11 @@ function Store() {
       </nav>
 
       <div className={styles.panel}>
+        {purchaseError ? (
+          <p className={styles.purchaseError} role="alert">
+            {purchaseError}
+          </p>
+        ) : null}
         {activeTab === 'stones' ? (
           <div className={styles.productsGrid}>
             {isLoadingPackages ? (
@@ -107,7 +163,7 @@ function Store() {
                     <button
                       type="button"
                       className={styles.buyButton}
-                      onClick={() => handlePurchase(pack.id)}
+                      onClick={() => handlePurchase(pack)}
                       disabled={isLoading}
                     >
                       {isLoading ? 'Cargando...' : `${pack.stars} ⭐`}

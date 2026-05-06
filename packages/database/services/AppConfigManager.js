@@ -39,6 +39,7 @@ const DEFAULT_CONFIG = {
       DIAMANTE: 10,
     },
     storePackages: [
+      { id: 'pack_test', name: 'Pack Dev', stars: 1, piedras: 10, bonusPercent: 0, isPopular: false },
       { id: 'pack_1', name: 'Puñado', stars: 50, piedras: 500, bonusPercent: 0, isPopular: false },
       { id: 'pack_2', name: 'Bolsa', stars: 250, piedras: 2750, bonusPercent: 10, isPopular: false },
       { id: 'pack_3', name: 'Saco', stars: 500, piedras: 6000, bonusPercent: 20, isPopular: true },
