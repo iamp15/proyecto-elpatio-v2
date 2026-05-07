@@ -80,6 +80,11 @@ function Store() {
           if (status === 'paid') {
             console.log('Pago completado en Telegram');
             setSuccessPack(pack);
+            setTimeout(() => {
+              refreshBalance().catch((err) => {
+                console.error('[Store] Error refrescando saldo tras compra:', err);
+              });
+            }, 1500);
           } else if (status === 'cancelled') {
             console.log('El usuario canceló el pago');
           } else if (status === 'failed') {
@@ -103,13 +108,8 @@ function Store() {
     }
   }
 
-  async function handleCloseSuccessModal() {
+  function handleCloseSuccessModal() {
     setSuccessPack(null);
-    try {
-      await refreshBalance();
-    } catch (err) {
-      console.error('[Store] Error refrescando saldo tras compra:', err);
-    }
   }
 
   return (
