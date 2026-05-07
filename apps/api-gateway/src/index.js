@@ -12,6 +12,7 @@ const configRoutes = require('./routes/config');
 const inventoryRoutes = require('./routes/inventory');
 const userRoutes = require('./routes/user');
 const storeRoutes = require('./routes/store');
+const telegramRoutes = require('./routes/telegram');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.use('/balance', balanceRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/config', configRoutes);
 app.use('/store', storeRoutes);
+app.use('/telegram', telegramRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/user', userRoutes);
 

@@ -211,6 +211,78 @@
   color: #99a1ac;
 }
 
+.successModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.successModal {
+  width: min(100%, 360px);
+  padding: 28px 22px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(217, 169, 89, 0.45);
+  background: linear-gradient(180deg, #1d2026 0%, #14161b 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.successIconWrap {
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(242, 208, 154, 0.38) 0%, rgba(185, 147, 86, 0.12) 70%);
+  box-shadow: 0 0 36px rgba(217, 169, 89, 0.34);
+}
+
+.successIcon {
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 0 12px rgba(242, 208, 154, 0.45));
+}
+
+.successTitle {
+  margin: 0 0 10px;
+  color: #f4d39d;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.successText {
+  margin: 0 0 22px;
+  color: #d9c8a9;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.successButton {
+  width: 100%;
+  appearance: none;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 16px;
+  color: #1a130a;
+  background: linear-gradient(180deg, #d9a959 0%, #b7833d 100%);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.successButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
 @media (max-width: 700px) {
   .header {
     flex-direction: column;

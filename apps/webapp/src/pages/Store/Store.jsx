@@ -15,10 +15,11 @@ function formatAmount(value) {
 }
 
 function Store() {
-  const { balance, api } = useAuth();
+  const { balance, api, refreshBalance } = useAuth();
   const [activeTab, setActiveTab] = useState('stones');
   const [purchasingPackId, setPurchasingPackId] = useState(null);
   const [purchaseError, setPurchaseError] = useState(null);
+  const [successPack, setSuccessPack] = useState(null);
   const [stonePackages, setStonePackages] = useState([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(true);
   const currentBalance = useMemo(() => formatAmount(balance), [balance]);
@@ -78,6 +79,7 @@ function Store() {
           console.log('[Store] Callback openInvoice status:', status);
           if (status === 'paid') {
             console.log('Pago completado en Telegram');
+            setSuccessPack(pack);
           } else if (status === 'cancelled') {
             console.log('El usuario canceló el pago');
           } else if (status === 'failed') {
@@ -98,6 +100,15 @@ function Store() {
         err?.body?.error || err?.message || 'No se pudo iniciar la compra. Intenta de nuevo.';
       setPurchaseError(typeof message === 'string' ? message : 'No se pudo iniciar la compra.');
       setPurchasingPackId(null);
+    }
+  }
+
+  async function handleCloseSuccessModal() {
+    setSuccessPack(null);
+    try {
+      await refreshBalance();
+    } catch (err) {
+      console.error('[Store] Error refrescando saldo tras compra:', err);
     }
   }
 
@@ -181,6 +192,25 @@ function Store() {
         )}
       </div>
       <BackHomeButton />
+
+      {successPack ? (
+        <div className={styles.successModalBackdrop} role="dialog" aria-modal="true" aria-labelledby="store-success-title">
+          <section className={styles.successModal}>
+            <div className={styles.successIconWrap}>
+              <img className={styles.successIcon} src={stonesIcon} alt="" aria-hidden />
+            </div>
+            <h2 id="store-success-title" className={styles.successTitle}>
+              ¡Compra Exitosa!
+            </h2>
+            <p className={styles.successText}>
+              Has recibido {formatAmount(successPack.piedras)} Piedras.
+            </p>
+            <button type="button" className={styles.successButton} onClick={handleCloseSuccessModal}>
+              ¡Excelente!
+            </button>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
