@@ -169,6 +169,36 @@
   font-size: 13px;
 }
 
+.vipCard {
+  border-color: rgba(209, 160, 85, 0.72);
+  background: linear-gradient(170deg, #22190e 0%, #17120d 55%, #111114 100%);
+  box-shadow: 0 14px 30px rgba(90, 62, 26, 0.3);
+}
+
+.vipDays {
+  margin: 2px 0 0;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 800;
+  color: #ffe0a9;
+}
+
+.vipBenefits {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: #e2cfad;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.vipBenefits li + li {
+  margin-top: 4px;
+}
+
+.vipBuyButton {
+  background: linear-gradient(180deg, #f1c677 0%, #ca9548 100%);
+}
+
 .buyButton {
   margin-top: auto;
   appearance: none;

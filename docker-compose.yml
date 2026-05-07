@@ -11,6 +11,7 @@ services:
       MONGO_URI: ${MONGO_URI:-}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      WEBAPP_URL: ${WEBAPP_URL:-https://proyecto-elpatio-v2-webapp.vercel.app}
 
   game-server:
     build:
@@ -22,17 +23,6 @@ services:
       PORT: 3001
       MONGO_URI: ${MONGO_URI:-}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
-      API_GATEWAY_URL: http://api-gateway:3000
-    depends_on:
-      - api-gateway
-
-  bot-telegram:
-    build:
-      context: .
-      dockerfile: apps/bot-telegram/Dockerfile
-    environment:
-      TELEGRAM_BOT_TOKEN: ${BOT_TOKEN:-}
-      WEBAPP_URL: ${WEBAPP_URL:-https://proyecto-elpatio-v2-webapp.vercel.app}
       API_GATEWAY_URL: http://api-gateway:3000
     depends_on:
       - api-gateway

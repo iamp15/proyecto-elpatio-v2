@@ -44,7 +44,27 @@ const DEFAULT_CONFIG = {
       { id: 'pack_2', name: 'Bolsa', stars: 250, piedras: 2750, bonusPercent: 10, isPopular: false },
       { id: 'pack_3', name: 'Saco', stars: 500, piedras: 6000, bonusPercent: 20, isPopular: true },
       { id: 'pack_4', name: 'Camión', stars: 1000, piedras: 13500, bonusPercent: 35, isPopular: false }
-    ]
+    ],
+    vipPackages: {
+      vip_7: {
+        days: 7,
+        stars: 50,
+        stones: 0,
+        items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock'],
+      },
+      vip_30: {
+        days: 30,
+        stars: 250,
+        stones: 1500,
+        items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock', 'coupon_bronze_x3'],
+      },
+      vip_90: {
+        days: 90,
+        stars: 500,
+        stones: 4500,
+        items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock', 'coupon_bronze_x3', 'coupon_plata_x3'],
+      },
+    },
   },
   matchmaking: {
     productionRulesEnabled: false,

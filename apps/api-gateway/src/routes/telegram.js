@@ -5,6 +5,7 @@ const {
   createTransaction,
   SUBUNITS_PER_STONE,
 } = require('@el-patio/database');
+const { handleTelegramMessage } = require('../bot/messageHandler');
 
 const router = express.Router();
 
@@ -120,6 +121,7 @@ router.post('/webhook', async (req, res) => {
       updateId: req.body?.update_id,
       hasPreCheckoutQuery: Boolean(req.body?.pre_checkout_query),
       hasSuccessfulPayment: Boolean(req.body?.message?.successful_payment),
+      hasMessageText: Boolean(req.body?.message?.text),
     });
 
     const preCheckoutQuery = req.body?.pre_checkout_query;
@@ -131,6 +133,14 @@ router.post('/webhook', async (req, res) => {
     const successfulPayment = req.body?.message?.successful_payment;
     if (successfulPayment) {
       await handleSuccessfulPayment(successfulPayment);
+      return res.status(200).send();
+    }
+
+    const message = req.body?.message;
+    if (message?.text) {
+      handleTelegramMessage(message).catch((err) => {
+        console.error('[telegram:webhook] Error manejando mensaje:', err);
+      });
       return res.status(200).send();
     }
 

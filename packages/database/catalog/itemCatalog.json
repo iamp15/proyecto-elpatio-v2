@@ -64,6 +64,22 @@
     "subType": "chat_emote",
     "requirement": "vip_active"
   },
+  "phrase_vip_mock": {
+    "name": "Frase VIP Mock",
+    "description": "Frase exclusiva de prototipo para miembros VIP.",
+    "fallbackEmoji": "💬",
+    "category": "consumable",
+    "subType": "chat_phrase",
+    "requirement": "vip_active"
+  },
+  "emote_vip_mock": {
+    "name": "Emote VIP Mock",
+    "description": "Emote exclusivo de prototipo para miembros VIP.",
+    "fallbackEmoji": "✨",
+    "category": "consumable",
+    "subType": "chat_emote",
+    "requirement": "vip_active"
+  },
   "avatar_default": {
     "name": "Avatar Genérico",
     "description": "Avatar genérico de desarrollo.",
