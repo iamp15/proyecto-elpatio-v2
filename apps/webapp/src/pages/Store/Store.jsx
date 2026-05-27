@@ -1,59 +1,79 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import BackHomeButton from '../../components/navigation/BackHomeButton';
 import stonesIcon from '../../assets/icono-piedras-2.png';
 import styles from './Store.module.css';
 
 const STORE_TABS = [
-  { id: 'stones', label: 'Piedras' },
-  { id: 'vip', label: 'VIP' },
-  { id: 'cosmetics', label: 'Cosmeticos' },
+  { id: 'stones', labelKey: 'store.tabs.stones' },
+  { id: 'vip', labelKey: 'store.tabs.vip' },
+  { id: 'cosmetics', labelKey: 'store.tabs.cosmetics' },
 ];
 
-const VIP_PACKAGES = [
-  {
-    id: 'vip_7',
-    name: 'VIP 7 Dias',
-    days: 7,
-    stars: 50,
-    stones: 0,
-    items: ['Insignia VIP', 'Frase VIP', 'Emote VIP'],
-    isPopular: false,
-  },
-  {
-    id: 'vip_30',
-    name: 'VIP 30 Dias',
-    days: 30,
-    stars: 250,
-    stones: 1500,
-    items: ['Insignia VIP', 'Frase VIP', 'Emote VIP', '3 Cupones Bronce'],
-    isPopular: true,
-  },
-  {
-    id: 'vip_90',
-    name: 'VIP 90 Dias',
-    days: 90,
-    stars: 500,
-    stones: 4500,
-    items: ['Insignia VIP', 'Frase VIP', 'Emote VIP', '3 Cupones Bronce', '3 Cupones Plata'],
-    isPopular: false,
-  },
-];
+const VIP_PACKAGE_ORDER = ['vip_7', 'vip_30', 'vip_90'];
+const POPULAR_VIP_PACKAGE_ID = 'vip_30';
 
-function formatAmount(value) {
+const VIP_BENEFIT_KEYS = {
+  badge_vip: 'vipBadge',
+  phrase_vip_mock: 'vipPhrase',
+  emote_vip_mock: 'vipEmote',
+  coupon_bronze_x3: 'bronzeCoupons3',
+  coupon_plata_x3: 'silverCoupons3',
+};
+
+function formatAmount(value, locale = 'es-ES') {
   if (value == null || Number.isNaN(Number(value))) return '0';
-  return new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(Number(value));
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Number(value));
 }
 
+function normalizeVipPackages(vipPackages) {
+  if (vipPackages == null || typeof vipPackages !== 'object') return [];
+  return Object.entries(vipPackages)
+    .map(([id, pack]) => ({
+      id,
+      days: Number(pack?.days || 0),
+      stars: Number(pack?.stars || 0),
+      stones: Number(pack?.stones || 0),
+      items: Array.isArray(pack?.items) ? pack.items : [],
+      isPopular: id === POPULAR_VIP_PACKAGE_ID,
+    }))
+    .filter((pack) => pack.id && pack.days > 0 && pack.stars > 0)
+    .sort((a, b) => {
+      const aIdx = VIP_PACKAGE_ORDER.indexOf(a.id);
+      const bIdx = VIP_PACKAGE_ORDER.indexOf(b.id);
+      if (aIdx !== -1 || bIdx !== -1) {
+        return (aIdx === -1 ? Number.MAX_SAFE_INTEGER : aIdx)
+          - (bIdx === -1 ? Number.MAX_SAFE_INTEGER : bIdx);
+      }
+      return a.days - b.days;
+    });
+}
+
+const STORE_TAB_IDS = new Set(['stones', 'vip', 'cosmetics']);
+
 function Store() {
+  const { t, i18n } = useTranslation();
+  const [searchParams] = useSearchParams();
   const { balance, api, refreshBalance, refreshUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('stones');
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = STORE_TAB_IDS.has(tabFromUrl) ? tabFromUrl : 'stones';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [purchasingPackId, setPurchasingPackId] = useState(null);
   const [purchaseError, setPurchaseError] = useState(null);
   const [successPurchase, setSuccessPurchase] = useState(null);
   const [stonePackages, setStonePackages] = useState([]);
+  const [vipPackages, setVipPackages] = useState([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(true);
-  const currentBalance = useMemo(() => formatAmount(balance), [balance]);
+  const currentLocale = i18n.resolvedLanguage || i18n.language || 'es-ES';
+  const currentBalance = useMemo(() => formatAmount(balance, currentLocale), [balance, currentLocale]);
+
+  useEffect(() => {
+    if (STORE_TAB_IDS.has(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   useEffect(() => {
     async function fetchPackages() {
@@ -63,7 +83,8 @@ function Store() {
         const data = await response.json();
         console.log('[Store] Respuesta /config/store:', data);
         if (data.ok) {
-          setStonePackages(data.storePackages);
+          setStonePackages(Array.isArray(data.storePackages) ? data.storePackages : []);
+          setVipPackages(normalizeVipPackages(data.vipPackages));
         }
       } catch (error) {
         console.error('[Store] Error cargando paquetes:', error);
@@ -92,7 +113,7 @@ function Store() {
 
       if (!res?.success || !res.invoiceUrl) {
         console.error('[Store] Respuesta de invoice inválida:', res);
-        setPurchaseError('No se pudo obtener la factura. Intenta de nuevo.');
+        setPurchaseError(t('store.errors.invoiceUnavailable'));
         setPurchasingPackId(null);
         return;
       }
@@ -133,8 +154,8 @@ function Store() {
     } catch (err) {
       console.error('[Store] Error iniciando compra:', err);
       const message =
-        err?.body?.error || err?.message || 'No se pudo iniciar la compra. Intenta de nuevo.';
-      setPurchaseError(typeof message === 'string' ? message : 'No se pudo iniciar la compra.');
+        err?.body?.error || err?.message || t('store.errors.purchaseStartFailed');
+      setPurchaseError(typeof message === 'string' ? message : t('store.errors.purchaseStartGeneric'));
       setPurchasingPackId(null);
     }
   }
@@ -151,7 +172,7 @@ function Store() {
       });
 
       if (!res?.success) {
-        setPurchaseError('No se pudo completar la compra VIP. Intenta de nuevo.');
+        setPurchaseError(t('store.errors.vipPurchaseFailedRetry'));
         setPurchasingPackId(null);
         return;
       }
@@ -161,8 +182,8 @@ function Store() {
     } catch (err) {
       console.error('[Store] Error comprando VIP mock:', err);
       const message =
-        err?.body?.error || err?.message || 'No se pudo completar la compra VIP.';
-      setPurchaseError(typeof message === 'string' ? message : 'No se pudo completar la compra VIP.');
+        err?.body?.error || err?.message || t('store.errors.vipPurchaseFailed');
+      setPurchaseError(typeof message === 'string' ? message : t('store.errors.vipPurchaseFailed'));
     } finally {
       setPurchasingPackId(null);
     }
@@ -176,19 +197,19 @@ function Store() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Store</p>
-          <h1 className={styles.title}>Tienda</h1>
+          <p className={styles.eyebrow}>{t('store.eyebrow')}</p>
+          <h1 className={styles.title}>{t('store.title')}</h1>
         </div>
-        <section className={styles.balanceCard} aria-label="Saldo de Piedras">
+        <section className={styles.balanceCard} aria-label={t('store.balanceAria')}>
           <div className={styles.balanceAmount}>{currentBalance}</div>
           <div className={styles.balanceMeta}>
             <img className={styles.balanceIcon} src={stonesIcon} alt="" aria-hidden />
-            <span>Piedras disponibles</span>
+            <span>{t('store.stonesAvailable')}</span>
           </div>
         </section>
       </header>
 
-      <nav className={styles.tabs} aria-label="Categorias de la tienda">
+      <nav className={styles.tabs} aria-label={t('store.tabsAria')}>
         {STORE_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -196,7 +217,7 @@ function Store() {
             className={`${styles.tabButton} ${activeTab === tab.id ? styles.tabButtonActive : ''}`}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </nav>
@@ -210,9 +231,9 @@ function Store() {
         {activeTab === 'stones' ? (
           <div className={styles.productsGrid}>
             {isLoadingPackages ? (
-              <p>Cargando paquetes...</p>
+              <p>{t('store.loadingPackages')}</p>
             ) : stonePackages.length === 0 ? (
-              <p>No hay paquetes disponibles en este momento.</p>
+              <p>{t('store.noPackages')}</p>
             ) : (
               stonePackages.map((pack) => {
                 const isLoading = purchasingPackId === pack.id;
@@ -224,12 +245,14 @@ function Store() {
                     <div className={styles.cardTopRow}>
                       <h3 className={styles.productName}>{pack.name}</h3>
                       {pack.bonusPercent > 0 ? (
-                        <span className={styles.bonusBadge}>+{pack.bonusPercent}% Extra</span>
+                        <span className={styles.bonusBadge}>
+                          {t('store.bonusExtra', { percent: pack.bonusPercent })}
+                        </span>
                       ) : null}
                     </div>
 
-                    <p className={styles.productStones}>{formatAmount(pack.piedras)}</p>
-                    <p className={styles.productCaption}>Piedras</p>
+                    <p className={styles.productStones}>{formatAmount(pack.piedras, currentLocale)}</p>
+                    <p className={styles.productCaption}>{t('store.stones')}</p>
 
                     <button
                       type="button"
@@ -237,7 +260,7 @@ function Store() {
                       onClick={() => handlePurchase(pack)}
                       disabled={isLoading}
                     >
-                      {isLoading ? 'Cargando...' : `${pack.stars} ⭐`}
+                      {isLoading ? t('store.loadingButton') : t('store.starsPrice', { stars: pack.stars })}
                     </button>
                   </article>
                 );
@@ -246,7 +269,12 @@ function Store() {
           </div>
         ) : activeTab === 'vip' ? (
           <div className={styles.productsGrid}>
-            {VIP_PACKAGES.map((pack) => {
+            {isLoadingPackages ? (
+              <p>{t('store.loadingPackages')}</p>
+            ) : vipPackages.length === 0 ? (
+              <p>{t('store.noPackages')}</p>
+            ) : (
+              vipPackages.map((pack) => {
               const isLoading = purchasingPackId === pack.id;
               return (
                 <article
@@ -254,17 +282,21 @@ function Store() {
                   className={`${styles.productCard} ${styles.vipCard} ${pack.isPopular ? styles.productCardPopular : ''}`}
                 >
                   <div className={styles.cardTopRow}>
-                    <h3 className={styles.productName}>{pack.name}</h3>
-                    {pack.isPopular ? <span className={styles.bonusBadge}>Recomendado</span> : null}
+                    <h3 className={styles.productName}>{t('store.vipPackageName', { days: pack.days })}</h3>
+                    {pack.isPopular ? <span className={styles.bonusBadge}>{t('store.recommended')}</span> : null}
                   </div>
-                  <p className={styles.vipDays}>{pack.days} Dias</p>
-                  <p className={styles.productCaption}>Membresia VIP</p>
+                  <p className={styles.vipDays}>{t('store.vipDays', { count: pack.days })}</p>
+                  <p className={styles.productCaption}>{t('store.vipMembership')}</p>
 
                   <ul className={styles.vipBenefits}>
-                    {pack.items.map((benefit) => (
-                      <li key={`${pack.id}-${benefit}`}>{benefit}</li>
+                    {pack.items.map((itemId) => (
+                      <li key={`${pack.id}-${itemId}`}>
+                        {t(`store.vipBenefits.${VIP_BENEFIT_KEYS[itemId]}`, { defaultValue: itemId })}
+                      </li>
                     ))}
-                    {pack.stones > 0 ? <li>+{formatAmount(pack.stones)} Piedras</li> : null}
+                    {pack.stones > 0 ? (
+                      <li>{t('store.vipBenefits.stones', { amount: formatAmount(pack.stones, currentLocale) })}</li>
+                    ) : null}
                   </ul>
 
                   <button
@@ -273,16 +305,17 @@ function Store() {
                     onClick={() => handleVipPurchase(pack)}
                     disabled={isLoading}
                   >
-                    {isLoading ? 'Procesando...' : `${pack.stars} ⭐`}
+                    {isLoading ? t('store.processingButton') : t('store.starsPrice', { stars: pack.stars })}
                   </button>
                 </article>
               );
-            })}
+              })
+            )}
           </div>
         ) : (
           <section className={styles.emptyState}>
-            <h2>Cosmeticos</h2>
-            <p>Muy pronto encontraras marcos, avatares y mas personalizaciones premium.</p>
+            <h2>{t('store.cosmeticsTitle')}</h2>
+            <p>{t('store.cosmeticsComingSoon')}</p>
           </section>
         )}
       </div>
@@ -295,17 +328,19 @@ function Store() {
               <img className={styles.successIcon} src={stonesIcon} alt="" aria-hidden />
             </div>
             <h2 id="store-success-title" className={styles.successTitle}>
-              ¡Compra Exitosa!
+              {t('store.successTitle')}
             </h2>
             <p className={styles.successText}>
               {successPurchase.type === 'stones'
-                ? `Has recibido ${formatAmount(successPurchase.pack.piedras)} Piedras.`
-                : `Tu membresia VIP fue activada hasta ${new Date(
-                    successPurchase.data?.vipExpiresAt,
-                  ).toLocaleDateString('es-ES')}.`}
+                ? t('store.successStones', {
+                    amount: formatAmount(successPurchase.pack.piedras, currentLocale),
+                  })
+                : t('store.successVip', {
+                    date: new Date(successPurchase.data?.vipExpiresAt).toLocaleDateString(currentLocale),
+                  })}
             </p>
             <button type="button" className={styles.successButton} onClick={handleCloseSuccessModal}>
-              ¡Excelente!
+              {t('store.successButton')}
             </button>
           </section>
         </div>

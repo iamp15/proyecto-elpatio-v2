@@ -2,8 +2,10 @@ const AppConfig = require('../models/AppConfig');
 
 let memoryConfig = null;
 let parsedGames = new Map();
+const APP_CONFIG_KEY = 'global';
 
 const DEFAULT_CONFIG = {
+  configKey: APP_CONFIG_KEY,
   system: {
     maintenanceMode: false,
     minClientVersion: '1.0.0'
@@ -74,20 +76,84 @@ const DEFAULT_CONFIG = {
 const DEFAULT_LEAGUE_RAKE_PERCENT = DEFAULT_CONFIG.economy.leagueRakePercent;
 
 class AppConfigManager {
+  async _normalizeSingletonConfig() {
+    const docs = await AppConfig.find({})
+      .sort({ updatedAt: -1, createdAt: -1, _id: -1 })
+      .lean();
+
+    if (docs.length === 0) return null;
+
+    const primary =
+      docs.find((doc) => doc.configKey === APP_CONFIG_KEY) ||
+      docs.find((doc) => doc.economy?.vipPackages) ||
+      docs[0];
+
+    const duplicateIds = docs
+      .filter((doc) => String(doc._id) !== String(primary._id))
+      .map((doc) => doc._id);
+
+    if (duplicateIds.length > 0) {
+      console.warn(
+        `[AppConfigManager] Se encontraron ${duplicateIds.length + 1} documentos app_config; conservando ${primary._id} y eliminando duplicados.`,
+      );
+      await AppConfig.deleteMany({ _id: { $in: duplicateIds } });
+    }
+
+    const needsSingletonKey = primary.configKey !== APP_CONFIG_KEY;
+    if (needsSingletonKey) {
+      return AppConfig.findByIdAndUpdate(
+        primary._id,
+        { $set: { configKey: APP_CONFIG_KEY } },
+        { new: true },
+      ).lean();
+    }
+
+    return primary;
+  }
+
   async loadConfigFromDB() {
-    // Usamos findOneAndUpdate con upsert para evitar crear duplicados si varios procesos arrancan a la vez
-    let config = await AppConfig.findOneAndUpdate(
-      {},
-      { $setOnInsert: DEFAULT_CONFIG },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).lean();
+    // Asegura el índice único antes del upsert. El índice parcial no bloquea
+    // documentos legacy sin configKey, que se normalizan abajo.
+    await AppConfig.init();
+
+    let config = await this._normalizeSingletonConfig();
+
+    if (!config) {
+      try {
+        config = await AppConfig.findOneAndUpdate(
+          { configKey: APP_CONFIG_KEY },
+          { $setOnInsert: DEFAULT_CONFIG },
+          { new: true, upsert: true, setDefaultsOnInsert: true },
+        ).lean();
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        config = await AppConfig.findOne({ configKey: APP_CONFIG_KEY }).lean();
+      }
+    }
 
     if (!config) {
       console.log('🌱 Creando AppConfig por defecto en la base de datos...');
       config = DEFAULT_CONFIG;
     }
+
+    if (!config.economy?.vipPackages) {
+      console.warn('[AppConfigManager] economy.vipPackages ausente; escribiendo paquetes VIP por defecto en app_config.');
+      config = await AppConfig.findOneAndUpdate(
+        { configKey: APP_CONFIG_KEY },
+        { $set: { 'economy.vipPackages': DEFAULT_CONFIG.economy.vipPackages } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      ).lean();
+    }
     
-    memoryConfig = config;
+    // Fallback defensivo para despliegues con documentos viejos sin vipPackages.
+    memoryConfig = {
+      ...config,
+      economy: {
+        ...DEFAULT_CONFIG.economy,
+        ...(config?.economy || {}),
+        vipPackages: config?.economy?.vipPackages || DEFAULT_CONFIG.economy.vipPackages,
+      },
+    };
     const gamesFromDb = config.gameplay?.games;
     const gamesToParse =
       Array.isArray(gamesFromDb) && gamesFromDb.length > 0
@@ -118,7 +184,7 @@ class AppConfigManager {
   async setMatchmakingProductionRulesEnabled(enabled) {
     const normalized = Boolean(enabled);
     await AppConfig.findOneAndUpdate(
-      {},
+      { configKey: APP_CONFIG_KEY },
       { $set: { 'matchmaking.productionRulesEnabled': normalized } },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     ).lean();

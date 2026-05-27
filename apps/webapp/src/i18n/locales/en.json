@@ -154,7 +154,57 @@
     "viewWallet": "View wallet"
   },
   "profile": {
-    "title": "Profile"
+    "title": "Profile",
+    "backpack": "Backpack",
+    "comingSoon": "Coming soon: Achievements & Stats",
+    "comingSoonAria": "Section in development",
+    "identity": {
+      "aria": "Player identity",
+      "editNickname": "Edit nickname"
+    },
+    "elite": {
+      "aria": "VIP membership",
+      "status": "Status: VIP Member",
+      "daysRemaining": "{{count}} days remaining",
+      "benefits": {
+        "badge": "Badge",
+        "chat": "VIP Chat",
+        "bonus": "PR Bonus"
+      },
+      "upsellAria": "VIP membership invitation",
+      "upsellTitle": "Join the VIP circle",
+      "upsellDescription": "Unlock an exclusive badge, premium chat, and prestige bonuses.",
+      "cta": "Explore VIP benefits"
+    },
+    "customizer": {
+      "title": "The Dressing Room",
+      "aria": "Avatar customization",
+      "tabsAria": "Cosmetic categories",
+      "tabs": {
+        "photo": "Photo",
+        "frame": "Frame",
+        "badge": "Badge"
+      },
+      "empty": "You don't have cosmetics of this type in your backpack.",
+      "save": "Save changes",
+      "noChanges": "No changes to save",
+      "saveSuccess": "Changes saved successfully",
+      "saveError": "Error saving changes"
+    },
+    "nicknameModal": {
+      "title": "Change nickname",
+      "description": "Pick a unique name (3–12 letters or numbers, no spaces).",
+      "placeholder": "e.g. Player123",
+      "check": "Check",
+      "available": "✓ available",
+      "unavailable": "✗ unavailable",
+      "cancel": "Cancel",
+      "save": "Save",
+      "validationError": "Nickname must be 3–12 letters or numbers",
+      "checkError": "Could not check availability",
+      "saveError": "Could not save nickname",
+      "unavailableError": "That nickname is not available"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -189,6 +239,51 @@
     "refund": "Refund",
     "commission": "Commission",
     "feePaidWithCoupon": "Entry paid with coupon (Bronze league)"
+  },
+  "store": {
+    "eyebrow": "Store",
+    "title": "Shop",
+    "balanceAria": "Stone balance",
+    "stonesAvailable": "Stones available",
+    "tabsAria": "Shop categories",
+    "tabs": {
+      "stones": "Stones",
+      "vip": "VIP",
+      "cosmetics": "Cosmetics"
+    },
+    "loadingPackages": "Loading packages...",
+    "noPackages": "No packages are available right now.",
+    "bonusExtra": "+{{percent}}% Extra",
+    "stones": "Stones",
+    "loadingButton": "Loading...",
+    "processingButton": "Processing...",
+    "starsPrice": "{{stars}} ⭐",
+    "recommended": "Recommended",
+    "vipPackageName": "{{days}}-Day VIP",
+    "vipDays_one": "{{count}} Day",
+    "vipDays_other": "{{count}} Days",
+    "vipMembership": "VIP membership",
+    "vipBenefits": {
+      "vipBadge": "VIP badge",
+      "vipPhrase": "VIP phrase",
+      "vipEmote": "VIP emote",
+      "bronzeCoupons3": "3 Bronze Coupons",
+      "silverCoupons3": "3 Silver Coupons",
+      "stones": "+{{amount}} Stones"
+    },
+    "cosmeticsTitle": "Cosmetics",
+    "cosmeticsComingSoon": "Frames, avatars, and more premium customizations are coming soon.",
+    "successTitle": "Purchase Successful!",
+    "successStones": "You received {{amount}} Stones.",
+    "successVip": "Your VIP membership was activated until {{date}}.",
+    "successButton": "Excellent!",
+    "errors": {
+      "invoiceUnavailable": "Could not get the invoice. Please try again.",
+      "purchaseStartFailed": "Could not start the purchase. Please try again.",
+      "purchaseStartGeneric": "Could not start the purchase.",
+      "vipPurchaseFailedRetry": "Could not complete the VIP purchase. Please try again.",
+      "vipPurchaseFailed": "Could not complete the VIP purchase."
+    }
   },
   "chat": {
     "hello": "Hello!",

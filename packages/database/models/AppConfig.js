@@ -26,6 +26,19 @@ const storePackageSchema = new mongoose.Schema({
   isPopular: { type: Boolean, default: false }
 }, { _id: false });
 
+const vipPackageSchema = new mongoose.Schema({
+  days: { type: Number, required: true },
+  stars: { type: Number, required: true },
+  stones: { type: Number, default: 0 },
+  items: { type: [String], default: [] },
+}, { _id: false });
+
+const vipPackagesSchema = new mongoose.Schema({
+  vip_7: { type: vipPackageSchema, required: true },
+  vip_30: { type: vipPackageSchema, required: true },
+  vip_90: { type: vipPackageSchema, required: true },
+}, { _id: false });
+
 /** Porcentaje de rake sobre el pozo total por liga (editables en BD). */
 const leagueRakePercentSchema = new mongoose.Schema({
   BRONCE: { type: Number, default: 20 },
@@ -35,6 +48,11 @@ const leagueRakePercentSchema = new mongoose.Schema({
 }, { _id: false });
 
 const appConfigSchema = new mongoose.Schema({
+  configKey: {
+    type: String,
+    required: true,
+    default: 'global',
+  },
   system: {
     maintenanceMode: { type: Boolean, default: false },
     minClientVersion: { type: String, default: '1.0.0' }
@@ -48,6 +66,14 @@ const appConfigSchema = new mongoose.Schema({
   },
   economy: {
     storePackages: { type: [storePackageSchema], default: [] },
+    vipPackages: {
+      type: vipPackagesSchema,
+      default: () => ({
+        vip_7: { days: 7, stars: 50, stones: 0, items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock'] },
+        vip_30: { days: 30, stars: 250, stones: 1500, items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock', 'coupon_bronze_x3'] },
+        vip_90: { days: 90, stars: 500, stones: 4500, items: ['badge_vip', 'phrase_vip_mock', 'emote_vip_mock', 'coupon_bronze_x3', 'coupon_plata_x3'] },
+      }),
+    },
     leagueRakePercent: {
       type: leagueRakePercentSchema,
       default: () => ({
@@ -62,5 +88,13 @@ const appConfigSchema = new mongoose.Schema({
     productionRulesEnabled: { type: Boolean, default: false },
   },
 }, { timestamps: true, collection: 'app_config' });
+
+appConfigSchema.index(
+  { configKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { configKey: { $exists: true } },
+  },
+);
 
 module.exports = mongoose.model('AppConfig', appConfigSchema);

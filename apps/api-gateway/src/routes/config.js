@@ -11,10 +11,12 @@ router.get('/store', (req, res) => {
   try {
     const config = AppConfigManager.getConfig();
     const storePackages = config.economy?.storePackages || [];
+    const vipPackages = config.economy?.vipPackages || {};
     
     res.json({
       ok: true,
-      storePackages
+      storePackages,
+      vipPackages,
     });
   } catch (error) {
     console.error('[GET /config/store] Error:', error);

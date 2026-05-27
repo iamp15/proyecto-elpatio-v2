@@ -154,7 +154,57 @@
     "viewWallet": "Ver billetera"
   },
   "profile": {
-    "title": "Perfil"
+    "title": "Perfil",
+    "backpack": "Mochila",
+    "comingSoon": "Próximamente: Logros y Estadísticas",
+    "comingSoonAria": "Sección en desarrollo",
+    "identity": {
+      "aria": "Identidad del jugador",
+      "editNickname": "Editar nickname"
+    },
+    "elite": {
+      "aria": "Membresía VIP",
+      "status": "Estatus: Miembro VIP",
+      "daysRemaining": "{{count}} días restantes",
+      "benefits": {
+        "badge": "Insignia",
+        "chat": "Chat VIP",
+        "bonus": "Bono PR"
+      },
+      "upsellAria": "Invitación a membresía VIP",
+      "upsellTitle": "Únete al círculo VIP",
+      "upsellDescription": "Desbloquea insignia exclusiva, chat premium y bonos de prestigio.",
+      "cta": "Conocer beneficios VIP"
+    },
+    "customizer": {
+      "title": "El Probador",
+      "aria": "Personalización de avatar",
+      "tabsAria": "Categorías de cosméticos",
+      "tabs": {
+        "photo": "Foto",
+        "frame": "Marco",
+        "badge": "Badge"
+      },
+      "empty": "No tienes cosméticos de este tipo en tu mochila.",
+      "save": "Guardar cambios",
+      "noChanges": "No hay cambios que guardar",
+      "saveSuccess": "Cambios guardados exitosamente",
+      "saveError": "Error al guardar cambios"
+    },
+    "nicknameModal": {
+      "title": "Cambiar nickname",
+      "description": "Elige un nombre único (3–12 letras o números, sin espacios).",
+      "placeholder": "Ej: Pablito123",
+      "check": "Comprobar",
+      "available": "✓ disponible",
+      "unavailable": "✗ no disponible",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "validationError": "El nickname debe tener entre 3 y 12 letras/números",
+      "checkError": "Error al comprobar disponibilidad",
+      "saveError": "Error al guardar el nickname",
+      "unavailableError": "Ese nickname no está disponible"
+    }
   },
   "settings": {
     "title": "Ajustes",
@@ -189,6 +239,51 @@
     "refund": "Reembolso",
     "commission": "Comisión",
     "feePaidWithCoupon": "Entrada con cupón (Liga Bronce)"
+  },
+  "store": {
+    "eyebrow": "Store",
+    "title": "Tienda",
+    "balanceAria": "Saldo de Piedras",
+    "stonesAvailable": "Piedras disponibles",
+    "tabsAria": "Categorías de la tienda",
+    "tabs": {
+      "stones": "Piedras",
+      "vip": "VIP",
+      "cosmetics": "Cosméticos"
+    },
+    "loadingPackages": "Cargando paquetes...",
+    "noPackages": "No hay paquetes disponibles en este momento.",
+    "bonusExtra": "+{{percent}}% Extra",
+    "stones": "Piedras",
+    "loadingButton": "Cargando...",
+    "processingButton": "Procesando...",
+    "starsPrice": "{{stars}} ⭐",
+    "recommended": "Recomendado",
+    "vipPackageName": "VIP {{days}} Días",
+    "vipDays_one": "{{count}} Día",
+    "vipDays_other": "{{count}} Días",
+    "vipMembership": "Membresía VIP",
+    "vipBenefits": {
+      "vipBadge": "Insignia VIP",
+      "vipPhrase": "Frase VIP",
+      "vipEmote": "Emote VIP",
+      "bronzeCoupons3": "3 Cupones Bronce",
+      "silverCoupons3": "3 Cupones Plata",
+      "stones": "+{{amount}} Piedras"
+    },
+    "cosmeticsTitle": "Cosméticos",
+    "cosmeticsComingSoon": "Muy pronto encontrarás marcos, avatares y más personalizaciones premium.",
+    "successTitle": "¡Compra Exitosa!",
+    "successStones": "Has recibido {{amount}} Piedras.",
+    "successVip": "Tu membresía VIP fue activada hasta {{date}}.",
+    "successButton": "¡Excelente!",
+    "errors": {
+      "invoiceUnavailable": "No se pudo obtener la factura. Intenta de nuevo.",
+      "purchaseStartFailed": "No se pudo iniciar la compra. Intenta de nuevo.",
+      "purchaseStartGeneric": "No se pudo iniciar la compra.",
+      "vipPurchaseFailedRetry": "No se pudo completar la compra VIP. Intenta de nuevo.",
+      "vipPurchaseFailed": "No se pudo completar la compra VIP."
+    }
   },
   "chat": {
     "hello": "Hola",
