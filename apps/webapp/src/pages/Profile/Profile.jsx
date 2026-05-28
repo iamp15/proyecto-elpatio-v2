@@ -50,7 +50,7 @@ export default function Profile() {
           nicknameModalProps={nicknameModalProps}
         />
 
-        <ProfileEliteHubBlock user={dashboard.user} />
+        <ProfileEliteHubBlock user={dashboard.user} inventory={dashboard.inventory} />
 
         <ProfileCustomizerBlock
           activeTab={dashboard.activeTab}

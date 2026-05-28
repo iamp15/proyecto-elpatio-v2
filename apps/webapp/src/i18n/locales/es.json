@@ -169,7 +169,10 @@
       "benefits": {
         "badge": "Insignia",
         "chat": "Chat VIP",
-        "bonus": "Bono PR"
+        "bonus": "Bono PR",
+        "frame": "Marco VIP",
+        "photo": "Foto VIP",
+        "emoji": "Emojis Pro"
       },
       "upsellAria": "Invitación a membresía VIP",
       "upsellTitle": "Únete al círculo VIP",
@@ -277,12 +280,25 @@
     "successStones": "Has recibido {{amount}} Piedras.",
     "successVip": "Tu membresía VIP fue activada hasta {{date}}.",
     "successButton": "¡Excelente!",
+    "vipConfirmTitle": "Confirmar compra VIP",
+    "vipConfirmBody": "Vas a comprar VIP por {{days}} días por {{stars}} ⭐. ¿Deseas continuar?",
+    "vipConfirmCancel": "Cancelar",
+    "vipConfirmAccept": "Confirmar compra",
+    "vipItemReward": {
+      "step": "Recompensa {{current}} de {{total}}",
+      "quantity": "Cantidad: {{count}}",
+      "stonesTitle": "Piedras",
+      "stonesBody": "Has recibido {{count}} Piedras.",
+      "genericBody": "Este ítem ya está en tu inventario.",
+      "accept": "¡Genial!"
+    },
     "errors": {
       "invoiceUnavailable": "No se pudo obtener la factura. Intenta de nuevo.",
       "purchaseStartFailed": "No se pudo iniciar la compra. Intenta de nuevo.",
       "purchaseStartGeneric": "No se pudo iniciar la compra.",
       "vipPurchaseFailedRetry": "No se pudo completar la compra VIP. Intenta de nuevo.",
-      "vipPurchaseFailed": "No se pudo completar la compra VIP."
+      "vipPurchaseFailed": "No se pudo completar la compra VIP.",
+      "vipPurchasePendingSync": "Pago recibido. Estamos sincronizando tu membresía VIP, recarga en unos segundos si no se refleja."
     }
   },
   "chat": {

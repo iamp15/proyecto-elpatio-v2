@@ -1,4 +1,9 @@
-const { User, AppConfigManager, isVipEffective } = require('@el-patio/database');
+const {
+  User,
+  AppConfigManager,
+  isVipEffective,
+  ensureExpiredVipBadgeReverted,
+} = require('@el-patio/database');
 
 /**
  * Enriquece los jugadores de una sala con displayName y rank desde la BD.
@@ -9,9 +14,10 @@ async function enrichPlayersWithUsernames(room) {
   const base = room.getPublicPlayers();
   const enriched = await Promise.all(
     base.map(async (p) => {
-      const u = await User.findById(p.userId).lean().select(
-        'nickname tg_firstName tg_username rank avatar_id frame_id badge_id vip_status',
+      const u = await User.findById(p.userId).select(
+        'nickname tg_firstName tg_username rank avatar_id frame_id badge_id vip_status inventory',
       );
+      if (u) await ensureExpiredVipBadgeReverted(u);
       const nick = u?.nickname != null && String(u.nickname).trim() !== '' ? String(u.nickname).trim() : '';
       const first = u?.tg_firstName != null && String(u.tg_firstName).trim() !== '' ? String(u.tg_firstName).trim() : '';
       const uname = u?.tg_username != null && String(u.tg_username).trim() !== '' ? String(u.tg_username).trim() : '';

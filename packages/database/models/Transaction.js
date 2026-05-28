@@ -29,6 +29,7 @@ const transactionSchema = new mongoose.Schema({
       'COMMISSION', // El "Rake" o comisión del patio
       'FEE_PAID_WITH_COUPON', // Entrada a liga pagada con cupón (amount_subunits 0; no afecta saldo)
       'DAILY_REWARD', // Recompensa diaria de inventario (amount_subunits 0; no afecta saldo)
+      'VIP_PURCHASE', // Compra de paquete VIP procesada por webhook
     ] 
   },
 

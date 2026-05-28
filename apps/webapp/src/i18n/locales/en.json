@@ -169,7 +169,10 @@
       "benefits": {
         "badge": "Badge",
         "chat": "VIP Chat",
-        "bonus": "PR Bonus"
+        "bonus": "PR Bonus",
+        "frame": "VIP Frame",
+        "photo": "VIP Photo",
+        "emoji": "Pro Emojis"
       },
       "upsellAria": "VIP membership invitation",
       "upsellTitle": "Join the VIP circle",
@@ -277,12 +280,25 @@
     "successStones": "You received {{amount}} Stones.",
     "successVip": "Your VIP membership was activated until {{date}}.",
     "successButton": "Excellent!",
+    "vipConfirmTitle": "Confirm VIP purchase",
+    "vipConfirmBody": "You are about to buy VIP for {{days}} days for {{stars}} ⭐. Do you want to continue?",
+    "vipConfirmCancel": "Cancel",
+    "vipConfirmAccept": "Confirm purchase",
+    "vipItemReward": {
+      "step": "Reward {{current}} of {{total}}",
+      "quantity": "Quantity: {{count}}",
+      "stonesTitle": "Stones",
+      "stonesBody": "You received {{count}} Stones.",
+      "genericBody": "This item is now in your inventory.",
+      "accept": "Great!"
+    },
     "errors": {
       "invoiceUnavailable": "Could not get the invoice. Please try again.",
       "purchaseStartFailed": "Could not start the purchase. Please try again.",
       "purchaseStartGeneric": "Could not start the purchase.",
       "vipPurchaseFailedRetry": "Could not complete the VIP purchase. Please try again.",
-      "vipPurchaseFailed": "Could not complete the VIP purchase."
+      "vipPurchaseFailed": "Could not complete the VIP purchase.",
+      "vipPurchasePendingSync": "Payment received. We are syncing your VIP membership, refresh in a few seconds if it is not visible yet."
     }
   },
   "chat": {

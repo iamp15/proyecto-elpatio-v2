@@ -4,27 +4,16 @@ const {
   Transaction,
   createTransaction,
   SUBUNITS_PER_STONE,
+  applyVipPackagePurchase,
 } = require('@el-patio/database');
 const { handleTelegramMessage } = require('../bot/messageHandler');
+const { parseInvoicePayload } = require('../lib/invoicePayload');
 
 const router = express.Router();
 
 function getBotToken() {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   return typeof botToken === 'string' && botToken.trim() ? botToken.trim() : null;
-}
-
-function parseInvoicePayload(payload) {
-  if (typeof payload !== 'string') return null;
-
-  const separatorIndex = payload.indexOf('_');
-  if (separatorIndex <= 0 || separatorIndex === payload.length - 1) return null;
-
-  const userId = Number(payload.slice(0, separatorIndex));
-  const packId = payload.slice(separatorIndex + 1);
-  if (!Number.isFinite(userId) || !packId) return null;
-
-  return { userId, packId };
 }
 
 async function answerPreCheckoutQuery(preCheckoutQueryId) {
@@ -65,7 +54,51 @@ async function handleSuccessfulPayment(successfulPayment) {
     throw Object.assign(new Error('Payload de invoice inválido'), { statusCode: 400 });
   }
 
-  const { userId, packId } = parsedPayload;
+  const { userId, kind, packId } = parsedPayload;
+
+  const telegramChargeId = successfulPayment.telegram_payment_charge_id || null;
+  const chargeReferenceExternalId = telegramChargeId
+    ? `telegram_stars:${telegramChargeId}`
+    : `telegram_stars:${payload}`;
+  const vipInvoiceReferenceId = kind === 'vip' ? `vip_invoice:${payload}` : null;
+
+  const existingTransaction = await Transaction.findOne({
+    type: kind === 'vip' ? 'VIP_PURCHASE' : 'DEPOSIT',
+    reference_external_id: kind === 'vip'
+      ? { $in: [chargeReferenceExternalId, vipInvoiceReferenceId] }
+      : chargeReferenceExternalId,
+  }).lean();
+
+  if (existingTransaction) {
+    console.log('[telegram:webhook] Pago ya acreditado, ignorando duplicado:', {
+      userId,
+      packId,
+      chargeReferenceExternalId,
+    });
+    return;
+  }
+
+  if (kind === 'vip') {
+    const result = await applyVipPackagePurchase({ userId, packId });
+    const transaction = await Transaction.create({
+      user_id: userId,
+      amount_subunits: 0,
+      type: 'VIP_PURCHASE',
+      status: 'COMPLETED',
+      balance_after_subunits: Number(result.balance_subunits || 0),
+      reference_external_id: vipInvoiceReferenceId,
+    });
+
+    console.log('[telegram:webhook] Compra VIP aplicada:', {
+      userId,
+      packId,
+      vipExpiresAt: result.vipExpiresAt,
+      vipInvoiceReferenceId,
+      transactionId: transaction?._id,
+    });
+    return;
+  }
+
   const config = AppConfigManager.getConfig();
   const storePackages = config.economy?.storePackages || [];
   const pack = storePackages.find((p) => p?.id === packId);
@@ -78,31 +111,12 @@ async function handleSuccessfulPayment(successfulPayment) {
     throw Object.assign(new Error(`Piedras inválidas para paquete: ${packId}`), { statusCode: 400 });
   }
 
-  const telegramChargeId = successfulPayment.telegram_payment_charge_id || null;
-  const referenceExternalId = telegramChargeId
-    ? `telegram_stars:${telegramChargeId}`
-    : `telegram_stars:${payload}`;
-
-  const existingTransaction = await Transaction.findOne({
-    type: 'DEPOSIT',
-    reference_external_id: referenceExternalId,
-  }).lean();
-
-  if (existingTransaction) {
-    console.log('[telegram:webhook] Pago ya acreditado, ignorando duplicado:', {
-      userId,
-      packId,
-      referenceExternalId,
-    });
-    return;
-  }
-
   const amountSubunits = piedras * SUBUNITS_PER_STONE;
   const transaction = await createTransaction({
     userId,
     amount_subunits: amountSubunits,
     type: 'DEPOSIT',
-    reference_external_id: referenceExternalId,
+    reference_external_id: chargeReferenceExternalId,
   });
 
   console.log('[telegram:webhook] Pago acreditado:', {
@@ -110,7 +124,7 @@ async function handleSuccessfulPayment(successfulPayment) {
     packId,
     piedras,
     amountSubunits,
-    referenceExternalId,
+    chargeReferenceExternalId,
     transactionId: transaction?._id,
   });
 }

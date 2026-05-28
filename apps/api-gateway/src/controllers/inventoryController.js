@@ -1,4 +1,9 @@
-const { ITEM_CATALOG, User, isUserVip } = require('@el-patio/database');
+const {
+  ITEM_CATALOG,
+  User,
+  isUserVip,
+  ensureExpiredVipBadgeReverted,
+} = require('@el-patio/database');
 
 const SUB_AVATAR_PHOTO = 'avatar_photo';
 const SUB_AVATAR_FRAME = 'avatar_frame';
@@ -53,10 +58,11 @@ async function getInventory(req, res, next) {
       { $pull: { inventory: { quantity: { $lte: 0 } } } },
     );
 
-    const user = await User.findById(userId).lean();
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    await ensureExpiredVipBadgeReverted(user);
     res.json({ inventory: user.inventory || [] });
   } catch (e) {
     next(e);
@@ -75,6 +81,7 @@ async function postEquip(req, res, next) {
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    await ensureExpiredVipBadgeReverted(user);
 
     const entry = user.inventory.find((e) => e.itemId === itemId);
     if (!entry) {

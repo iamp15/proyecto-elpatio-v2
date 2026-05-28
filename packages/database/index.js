@@ -27,6 +27,12 @@ const {
   subunitsToStonesFloor,
 } = require('./utils/stoneEconomy');
 const { isVipEffective, isUserVip } = require('./utils/isVipEffective');
+const { expandVipPackageItemRewards } = require('./utils/vipPackageRewards');
+const {
+  applyExpiredVipBadgeFallback,
+  ensureExpiredVipBadgeReverted,
+} = require('./services/vipExpiry');
+const { applyVipPackagePurchase } = require('./services/applyVipPackagePurchase');
 const { CURRENT_SEASON } = require('./utils/currentSeason');
 
 // Configuramos para que Mongoose use promesas modernas
@@ -79,6 +85,10 @@ module.exports = {
   subunitsToStonesFloor,
   isVipEffective,
   isUserVip,
+  expandVipPackageItemRewards,
+  applyExpiredVipBadgeFallback,
+  ensureExpiredVipBadgeReverted,
+  applyVipPackagePurchase,
   CURRENT_SEASON,
   ITEM_CATALOG,
   mongoose,

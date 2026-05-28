@@ -2,7 +2,10 @@ import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
+import { isVipUser } from '../../lib/vipUserUi';
+import { expandVipPackageItemRewards } from '../../lib/vipPackageRewards';
 import BackHomeButton from '../../components/navigation/BackHomeButton';
+import StoreVipItemRewardModal from './components/StoreVipItemRewardModal';
 import stonesIcon from '../../assets/icono-piedras-2.png';
 import styles from './Store.module.css';
 
@@ -21,6 +24,17 @@ const VIP_BENEFIT_KEYS = {
   emote_vip_mock: 'vipEmote',
   coupon_bronze_x3: 'bronzeCoupons3',
   coupon_plata_x3: 'silverCoupons3',
+};
+
+const VIP_CONDITIONAL_ITEM_IDS = new Set(['phrase_vip_mock', 'emote_vip_mock', 'badge_vip']);
+
+const VIP_ITEM_MODAL_ORDER = {
+  phrase_vip_mock: 10,
+  emote_vip_mock: 20,
+  badge_vip: 30,
+  __stones__: 40,
+  coupon_bronze: 50,
+  coupon_plata: 60,
 };
 
 function formatAmount(value, locale = 'es-ES') {
@@ -51,18 +65,55 @@ function normalizeVipPackages(vipPackages) {
     });
 }
 
+function buildVipRewardQueue(pack, hadActiveSubscriptionBeforePurchase) {
+  const expandedPackItems = expandVipPackageItemRewards(pack?.items).filter((entry) => entry?.itemId);
+  const queue = expandedPackItems.filter((entry) => {
+    if (VIP_CONDITIONAL_ITEM_IDS.has(entry.itemId)) {
+      return !hadActiveSubscriptionBeforePurchase;
+    }
+    return true;
+  });
+
+  const addedStones = Math.max(0, Math.trunc(Number(pack?.stones || 0)));
+  if (addedStones > 0) {
+    queue.push({ itemId: '__stones__', quantity: addedStones });
+  }
+
+  return queue.sort((a, b) => {
+    const aOrder = VIP_ITEM_MODAL_ORDER[a.itemId] ?? 999;
+    const bOrder = VIP_ITEM_MODAL_ORDER[b.itemId] ?? 999;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return String(a.itemId).localeCompare(String(b.itemId));
+  });
+}
+
+function computeExpectedVipExpiry(vipStatus, packDays) {
+  const nowMs = Date.now();
+  const currentExpiryMs = new Date(vipStatus?.expiresAt).getTime();
+  const baseMs = Number.isFinite(currentExpiryMs) && currentExpiryMs > nowMs
+    ? currentExpiryMs
+    : nowMs;
+  return new Date(baseMs + Number(packDays || 0) * 24 * 60 * 60 * 1000);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const STORE_TAB_IDS = new Set(['stones', 'vip', 'cosmetics']);
 
 function Store() {
   const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
-  const { balance, api, refreshBalance, refreshUser } = useAuth();
+  const { balance, api, refreshBalance, refreshUser, user } = useAuth();
   const tabFromUrl = searchParams.get('tab');
   const initialTab = STORE_TAB_IDS.has(tabFromUrl) ? tabFromUrl : 'stones';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [purchasingPackId, setPurchasingPackId] = useState(null);
   const [purchaseError, setPurchaseError] = useState(null);
   const [successPurchase, setSuccessPurchase] = useState(null);
+  const [vipItemRewardContext, setVipItemRewardContext] = useState(null);
+  const [vipConfirmPack, setVipConfirmPack] = useState(null);
   const [stonePackages, setStonePackages] = useState([]);
   const [vipPackages, setVipPackages] = useState([]);
   const [isLoadingPackages, setIsLoadingPackages] = useState(true);
@@ -160,38 +211,125 @@ function Store() {
     }
   }
 
-  async function handleVipPurchase(pack) {
-    console.log('[Store] Click comprar VIP:', pack);
+  async function executeVipPurchase(pack) {
     if (purchasingPackId != null) return;
 
     setPurchaseError(null);
     setPurchasingPackId(pack.id);
+    const hadActiveSubscriptionBeforePurchase = isVipUser(user);
     try {
-      const res = await api.request('POST', '/store/buy-vip-mock', {
+      const res = await api.request('POST', '/store/create-vip-invoice', {
         body: { packId: pack.id },
       });
 
-      if (!res?.success) {
+      if (!res?.success || !res.invoiceUrl) {
         setPurchaseError(t('store.errors.vipPurchaseFailedRetry'));
         setPurchasingPackId(null);
         return;
       }
 
-      setSuccessPurchase({ type: 'vip', pack, data: res });
-      await Promise.all([refreshUser(), refreshBalance()]);
+      const tg = window.Telegram?.WebApp;
+      if (!tg || typeof tg.openInvoice !== 'function') {
+        window.open(res.invoiceUrl, '_blank');
+        setPurchasingPackId(null);
+        return;
+      }
+
+      tg.openInvoice(res.invoiceUrl, async (status) => {
+        if (status === 'paid') {
+          const purchaseToken = typeof res.purchaseToken === 'string' ? res.purchaseToken : null;
+          let vipExpiresAt = computeExpectedVipExpiry(user?.vip_status, pack.days);
+          let appliedByWebhook = false;
+
+          if (purchaseToken) {
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+              try {
+                const statusRes = await api.request('POST', '/store/vip-purchase-status', {
+                  body: { purchaseToken },
+                });
+                if (statusRes?.applied) {
+                  appliedByWebhook = true;
+                  if (statusRes.vipExpiresAt) {
+                    vipExpiresAt = new Date(statusRes.vipExpiresAt);
+                  }
+                  break;
+                }
+              } catch (pollErr) {
+                console.warn('[Store] Error consultando estado VIP:', pollErr);
+              }
+              await delay(1000);
+            }
+          }
+
+          if (!appliedByWebhook) {
+            setPurchaseError(t('store.errors.vipPurchasePendingSync'));
+          }
+
+          const rewardQueue = buildVipRewardQueue(pack, hadActiveSubscriptionBeforePurchase);
+          if (rewardQueue.length > 0) {
+            setVipItemRewardContext({
+              queue: rewardQueue,
+              totalCount: rewardQueue.length,
+            });
+          }
+
+          setSuccessPurchase({
+            type: 'vip',
+            pack,
+            data: { vipExpiresAt },
+          });
+
+          Promise.all([refreshUser(), refreshBalance()]).catch((err) => {
+            console.error('[Store] Error sincronizando perfil VIP tras pago:', err);
+          });
+        }
+        setPurchasingPackId(null);
+      });
     } catch (err) {
-      console.error('[Store] Error comprando VIP mock:', err);
+      console.error('[Store] Error creando invoice VIP:', err);
       const message =
         err?.body?.error || err?.message || t('store.errors.vipPurchaseFailed');
       setPurchaseError(typeof message === 'string' ? message : t('store.errors.vipPurchaseFailed'));
-    } finally {
       setPurchasingPackId(null);
     }
+  }
+
+  function handleVipPurchase(pack) {
+    console.log('[Store] Click comprar VIP:', pack);
+    if (purchasingPackId != null) return;
+    setPurchaseError(null);
+    setVipConfirmPack(pack);
+  }
+
+  function handleCancelVipConfirm() {
+    if (purchasingPackId != null) return;
+    setVipConfirmPack(null);
+  }
+
+  async function handleConfirmVipPurchase() {
+    if (!vipConfirmPack) return;
+    const pack = vipConfirmPack;
+    await executeVipPurchase(pack);
+    setVipConfirmPack(null);
   }
 
   function handleCloseSuccessModal() {
     setSuccessPurchase(null);
   }
+
+  function handleCloseVipItemReward() {
+    setVipItemRewardContext((ctx) => {
+      if (!ctx) return null;
+      const nextQueue = ctx.queue.slice(1);
+      if (nextQueue.length === 0) return null;
+      return { ...ctx, queue: nextQueue };
+    });
+  }
+
+  const currentVipItemReward = vipItemRewardContext?.queue[0] ?? null;
+  const vipItemRewardIndex = vipItemRewardContext
+    ? vipItemRewardContext.totalCount - vipItemRewardContext.queue.length + 1
+    : 0;
 
   return (
     <div className={styles.container}>
@@ -342,6 +480,47 @@ function Store() {
             <button type="button" className={styles.successButton} onClick={handleCloseSuccessModal}>
               {t('store.successButton')}
             </button>
+          </section>
+        </div>
+      ) : currentVipItemReward ? (
+        <StoreVipItemRewardModal
+          reward={currentVipItemReward}
+          currentIndex={vipItemRewardIndex}
+          totalCount={vipItemRewardContext.totalCount}
+          onAccept={handleCloseVipItemReward}
+        />
+      ) : null}
+
+      {vipConfirmPack ? (
+        <div className={styles.successModalBackdrop} role="dialog" aria-modal="true" aria-labelledby="store-vip-confirm-title">
+          <section className={styles.successModal}>
+            <h2 id="store-vip-confirm-title" className={styles.successTitle}>
+              {t('store.vipConfirmTitle')}
+            </h2>
+            <p className={styles.successText}>
+              {t('store.vipConfirmBody', {
+                days: vipConfirmPack.days,
+                stars: vipConfirmPack.stars,
+              })}
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={`${styles.successButton} ${styles.confirmCancelButton}`}
+                onClick={handleCancelVipConfirm}
+                disabled={purchasingPackId != null}
+              >
+                {t('store.vipConfirmCancel')}
+              </button>
+              <button
+                type="button"
+                className={styles.successButton}
+                onClick={handleConfirmVipPurchase}
+                disabled={purchasingPackId != null}
+              >
+                {purchasingPackId != null ? t('store.processingButton') : t('store.vipConfirmAccept')}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}

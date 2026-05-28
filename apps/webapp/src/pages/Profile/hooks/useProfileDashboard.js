@@ -240,6 +240,7 @@ export function useProfileDashboard() {
 
   return {
     user,
+    inventory,
     previewUser,
     activeTab,
     setActiveTab,

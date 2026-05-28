@@ -1,43 +1,51 @@
 const express = require('express');
-const { AppConfigManager, User, ITEM_CATALOG, SUBUNITS_PER_STONE } = require('@el-patio/database');
+const {
+  AppConfigManager,
+  User,
+  Transaction,
+  applyVipPackagePurchase,
+} = require('@el-patio/database');
 const { authMiddleware } = require('../middleware/auth');
+const { buildInvoicePayload, parseInvoicePayload } = require('../lib/invoicePayload');
 
 const router = express.Router();
 
-function toPositiveInt(value) {
-  const n = Math.trunc(Number(value));
-  return Number.isFinite(n) && n > 0 ? n : null;
+function generateInvoiceNonce() {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function resolveCouponItem(rawItemId) {
-  const match = /^(.+)_x(\d+)$/.exec(rawItemId);
-  if (!match) return null;
-  const [, itemId, rawQty] = match;
-  const quantity = toPositiveInt(rawQty);
-  if (!itemId.startsWith('coupon_') || quantity == null) return null;
-  return { itemId, quantity };
-}
-
-function upsertInventoryItem(user, itemId, quantityToAdd, now) {
-  const existing = Array.isArray(user.inventory)
-    ? user.inventory.find((entry) => entry?.itemId === itemId)
-    : null;
-
-  if (existing) {
-    existing.quantity = Number(existing.quantity || 0) + quantityToAdd;
-    return;
+async function createTelegramInvoiceLink({
+  title,
+  description,
+  payload,
+  label,
+  stars,
+}) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken || typeof botToken !== 'string') {
+    throw Object.assign(new Error('Servidor no configurado para facturación'), { statusCode: 500 });
   }
 
-  const catalog = ITEM_CATALOG?.[itemId];
-  const isCoupon = itemId.startsWith('coupon_');
-  user.inventory.push({
-    itemId,
-    category: catalog?.category ?? (isCoupon ? 'consumable' : 'cosmetic'),
-    subType: catalog?.subType ?? (isCoupon ? 'league_coupon' : 'profile_badge'),
-    quantity: quantityToAdd,
-    isEquipped: false,
-    acquiredAt: now,
+  const url = `https://api.telegram.org/bot${botToken}/createInvoiceLink`;
+  const telegramRes = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title,
+      description,
+      payload,
+      provider_token: '',
+      currency: 'XTR',
+      prices: [{ label, amount: stars }],
+    }),
   });
+
+  const telegramJson = await telegramRes.json().catch(() => null);
+  if (!telegramJson?.ok || typeof telegramJson?.result !== 'string' || !telegramJson.result.length) {
+    throw Object.assign(new Error('No se pudo crear la factura'), { statusCode: 500 });
+  }
+
+  return telegramJson.result;
 }
 
 /**
@@ -78,12 +86,6 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Paquete inválido (stars)' });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!botToken || typeof botToken !== 'string') {
-      console.error('[POST /store/create-invoice] TELEGRAM_BOT_TOKEN no configurado');
-      return res.status(500).json({ error: 'Servidor no configurado para facturación' });
-    }
-
     const userId = req.user?.userId;
     if (userId == null) {
       console.warn('[store:create-invoice] userId ausente en JWT');
@@ -92,7 +94,7 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
 
     const title = `Paquete de ${pack.piedras} Piedras`;
     const description = 'Recarga de saldo para El Patio Dominó';
-    const payload = `${userId}_${packId}`;
+    const payload = buildInvoicePayload({ userId, kind: 'stones', packId });
     console.log('[store:create-invoice] Payload Telegram preparado:', {
       title,
       payload,
@@ -100,46 +102,119 @@ router.post('/create-invoice', authMiddleware, async (req, res) => {
       priceAmount: stars,
     });
 
-    const url = `https://api.telegram.org/bot${botToken}/createInvoiceLink`;
-
-    const telegramRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        description,
-        payload,
-        provider_token: '',
-        currency: 'XTR',
-        prices: [{ label: pack.name, amount: stars }],
-      }),
+    const invoiceUrl = await createTelegramInvoiceLink({
+      title,
+      description,
+      payload,
+      label: pack.name,
+      stars,
     });
-
-    const telegramJson = await telegramRes.json().catch(() => null);
-    console.log('[store:create-invoice] Respuesta Telegram:', {
-      httpStatus: telegramRes.status,
-      ok: telegramJson?.ok,
-      hasResult: typeof telegramJson?.result === 'string',
-      description: telegramJson?.description,
-      errorCode: telegramJson?.error_code,
-    });
-
-    if (!telegramJson?.ok) {
-      console.error('[POST /store/create-invoice] Telegram error:', telegramJson);
-      return res.status(500).json({ error: 'No se pudo crear la factura' });
-    }
-
-    const invoiceUrl = telegramJson.result;
-    if (typeof invoiceUrl !== 'string' || !invoiceUrl.length) {
-      console.error('[POST /store/create-invoice] Respuesta Telegram sin result válido');
-      return res.status(500).json({ error: 'Respuesta de facturación inválida' });
-    }
 
     console.log('[store:create-invoice] Invoice creada correctamente:', { packId, userId });
     return res.json({ success: true, invoiceUrl });
   } catch (error) {
     console.error('[POST /store/create-invoice]', error);
     return res.status(500).json({ error: 'Error al crear la factura' });
+  }
+});
+
+/**
+ * POST /store/create-vip-invoice
+ * Genera invoice Telegram Stars para activar/renovar VIP.
+ */
+router.post('/create-vip-invoice', authMiddleware, async (req, res) => {
+  try {
+    const packId = String(req.body?.packId ?? '').trim();
+    if (!packId) {
+      return res.status(400).json({ error: 'packId requerido' });
+    }
+
+    const config = AppConfigManager.getConfig();
+    const vipPackages = config.economy?.vipPackages || {};
+    const pack = vipPackages[packId];
+    if (!pack) {
+      return res.status(400).json({ error: 'Paquete VIP no encontrado' });
+    }
+
+    const stars = Math.trunc(Number(pack.stars));
+    if (!Number.isFinite(stars) || stars <= 0) {
+      return res.status(400).json({ error: 'Paquete VIP inválido (stars)' });
+    }
+
+    const userId = req.user?.userId;
+    if (userId == null) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+
+    const title = `VIP ${pack.days} días`;
+    const description = 'Membresía VIP para El Patio Dominó';
+    const payload = buildInvoicePayload({
+      userId,
+      kind: 'vip',
+      packId,
+      nonce: generateInvoiceNonce(),
+    });
+
+    const invoiceUrl = await createTelegramInvoiceLink({
+      title,
+      description,
+      payload,
+      label: `VIP ${pack.days}d`,
+      stars,
+    });
+
+    return res.json({ success: true, invoiceUrl, purchaseToken: payload });
+  } catch (error) {
+    console.error('[POST /store/create-vip-invoice]', error);
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Error al crear la factura VIP' });
+  }
+});
+
+/**
+ * POST /store/vip-purchase-status
+ * Consulta si una compra VIP (invoice/payload) ya fue aplicada por webhook.
+ */
+router.post('/vip-purchase-status', authMiddleware, async (req, res) => {
+  try {
+    const purchaseToken = String(req.body?.purchaseToken ?? '').trim();
+    if (!purchaseToken) {
+      return res.status(400).json({ error: 'purchaseToken requerido' });
+    }
+
+    const parsed = parseInvoicePayload(purchaseToken);
+    if (!parsed || parsed.kind !== 'vip') {
+      return res.status(400).json({ error: 'purchaseToken VIP inválido' });
+    }
+
+    const userId = Number(req.user?.userId);
+    if (!Number.isFinite(userId)) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+    if (parsed.userId !== userId) {
+      return res.status(403).json({ error: 'purchaseToken no pertenece al usuario autenticado' });
+    }
+
+    const tx = await Transaction.findOne({
+      type: 'VIP_PURCHASE',
+      reference_external_id: `vip_invoice:${purchaseToken}`,
+    }).lean();
+
+    if (!tx) {
+      return res.json({ success: true, applied: false });
+    }
+
+    const user = await User.findById(userId).select('vip_status balance_subunits').lean();
+    return res.json({
+      success: true,
+      applied: true,
+      packId: parsed.packId,
+      vipExpiresAt: user?.vip_status?.expiresAt ?? null,
+      balance_subunits: Number(user?.balance_subunits || 0),
+      appliedAt: tx.createdAt ?? null,
+    });
+  } catch (error) {
+    console.error('[POST /store/vip-purchase-status]', error);
+    return res.status(500).json({ error: 'Error consultando estado de compra VIP' });
   }
 });
 
@@ -154,83 +229,15 @@ router.post('/buy-vip-mock', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'packId requerido' });
     }
 
-    const config = AppConfigManager.getConfig();
-    const vipPackages = config.economy?.vipPackages || {};
-    const pack = vipPackages[packId];
-    if (!pack) {
-      return res.status(400).json({ error: 'Paquete VIP no encontrado' });
-    }
-
-    const days = toPositiveInt(pack.days);
-    if (days == null) {
-      return res.status(400).json({ error: 'Paquete VIP inválido (days)' });
-    }
-
     const userId = req.user?.userId;
     if (userId == null) {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    if (!Array.isArray(user.inventory)) {
-      user.inventory = [];
-    }
-
-    const now = new Date();
-    const currentExpiryMs = new Date(user.vip_status?.expiresAt).getTime();
-    const baseExpiryMs = Number.isFinite(currentExpiryMs) && currentExpiryMs > now.getTime()
-      ? currentExpiryMs
-      : now.getTime();
-    const nextExpiry = new Date(baseExpiryMs + days * 24 * 60 * 60 * 1000);
-
-    user.vip_status = {
-      is_vip: true,
-      start_date: user.vip_status?.start_date ?? now,
-      expiresAt: nextExpiry,
-    };
-
-    const grantedItems = [];
-    const items = Array.isArray(pack.items) ? pack.items : [];
-    for (const rawItemId of items) {
-      if (typeof rawItemId !== 'string' || rawItemId.length === 0) continue;
-      const coupon = resolveCouponItem(rawItemId);
-
-      if (coupon) {
-        upsertInventoryItem(user, coupon.itemId, coupon.quantity, now);
-        grantedItems.push({ itemId: coupon.itemId, quantity: coupon.quantity });
-        continue;
-      }
-
-      const alreadyOwned = user.inventory.some((entry) => entry?.itemId === rawItemId);
-      if (alreadyOwned) continue;
-
-      upsertInventoryItem(user, rawItemId, 1, now);
-      grantedItems.push({ itemId: rawItemId, quantity: 1 });
-    }
-
-    const stones = Math.max(0, Math.trunc(Number(pack.stones || 0)));
-    if (stones > 0) {
-      user.balance_subunits = Number(user.balance_subunits || 0) + stones * SUBUNITS_PER_STONE;
-    }
-
-    await user.save();
-
-    return res.json({
-      success: true,
-      packageId: packId,
-      vipExpiresAt: nextExpiry,
-      grantedItems,
-      addedStones: stones,
-      balance_subunits: user.balance_subunits,
-      piedras: Math.floor(Number(user.balance_subunits || 0) / SUBUNITS_PER_STONE),
-    });
+    const result = await applyVipPackagePurchase({ userId, packId });
+    return res.json({ success: true, ...result });
   } catch (error) {
     console.error('[POST /store/buy-vip-mock]', error);
-    return res.status(500).json({ error: 'Error al comprar VIP mock' });
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Error al comprar VIP mock' });
   }
 });
 
